@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sector Heatmap - Nasdaq Stock Analysis</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .heatmap-container {
+            background: white;
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 32px;
+        }
+        
+        .heatmap-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        
+        .heatmap-header h2 {
+            font-size: 2rem;
+            margin-bottom: 12px;
+        }
+        
+        .sector-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-top: 32px;
+        }
+        
+        .sector-card {
+            border-radius: 12px;
+            padding: 24px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .sector-card:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+        }
+        
+        .sector-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .sector-name {
+            font-size: 1.35rem;
+            font-weight: 800;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .sector-change {
+            font-size: 1.2rem;
+            font-weight: 800;
+            padding: 6px 16px;
+            border-radius: 16px;
+            background: rgba(255,255,255,0.25);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .sector-stocks {
+            margin-top: 16px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 12px;
+            border-radius: 8px;
+        }
+        
+        .stock-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.15);
+            font-size: 0.95rem;
+            transition: background 0.2s;
+        }
+        
+        .stock-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+        }
+        
+        .stock-item:last-child {
+            border-bottom: none;
+        }
+        
+        .stock-symbol {
+            font-weight: 800;
+            font-size: 1rem;
+            letter-spacing: 0.5px;
+        }
+        
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            margin-top: 32px;
+            padding: 16px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+        
+        .sentiment-meter {
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            margin-top: 12px;
+            overflow: hidden;
+        }
+        
+        .sentiment-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <span class="logo">📈</span>
+                <h1>Nasdaq Stock Analysis</h1>
+            </div>
+            <div class="nav-links">
+                <a href="/" class="nav-link">Home</a>
+                <a href="/trending.html" class="nav-link">Trending</a>
+                <a href="/about.html" class="nav-link">About</a>
+                <a href="/heatmap.html" class="nav-link active">Sector Heatmap</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container main-content">
+        <div class="heatmap-container">
+            <div class="heatmap-header">
+                <h2>🔥 Sector Heatmap</h2>
+                <p>Real-time sector performance and sentiment analysis</p>
+            </div>
+            
+            <div id="sectorGrid" class="sector-grid">
+                <div class="loading-section" style="display: block; grid-column: 1/-1;">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">Loading sector data...</div>
+                </div>
+            </div>
+            
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #16a34a;"></div>
+                    <span>Strong Positive</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #86efac;"></div>
+                    <span>Positive</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #fef08a;"></div>
+                    <span>Neutral</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #fca5a5;"></div>
+                    <span>Negative</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #dc2626;"></div>
+                    <span>Strong Negative</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Define sectors with representative stocks
+        const sectors = [
+            {
+                name: 'Technology',
+                stocks: ['AAPL', 'MSFT', 'NVDA', 'GOOGL', 'META']
+            },
+            {
+                name: 'Healthcare',
+                stocks: ['JNJ', 'UNH', 'PFE', 'MRK', 'ABBV']
+            },
+            {
+                name: 'Financial',
+                stocks: ['JPM', 'BAC', 'WFC', 'GS', 'MS']
+            },
+            {
+                name: 'Consumer Discretionary',
+                stocks: ['AMZN', 'TSLA', 'HD', 'MCD', 'NKE']
+            },
+            {
+                name: 'Communication',
+                stocks: ['GOOGL', 'META', 'NFLX', 'DIS', 'T']
+            },
+            {
+                name: 'Industrials',
+                stocks: ['BA', 'CAT', 'GE', 'UPS', 'HON']
+            },
+            {
+                name: 'Energy',
+                stocks: ['XOM', 'CVX', 'COP', 'SLB', 'EOG']
+            },
+            {
+                name: 'Consumer Staples',
+                stocks: ['WMT', 'PG', 'KO', 'PEP', 'COST']
+            }
+        ];
+
+        // 缓存数据
+        const priceCache = new Map();
+        const CACHE_TTL = 2 * 60 * 1000; // 2 分钟缓存（缩短）
+        
+        async function fetchStockPrice(symbol) {
+            // 检查缓存
+            const cached = priceCache.get(symbol);
+            if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+                return cached.data;
+            }
+            
+            try {
+                const response = await fetch(`/api/stock/${symbol}/price`);
+                const data = await response.json();
+                const priceData = data.data || {};
+                
+                // 存入缓存
+                priceCache.set(symbol, {
+                    data: priceData,
+                    timestamp: Date.now()
+                });
+                
+                return priceData;
+            } catch (error) {
+                console.error('Error:', error);
+                return {};
+            }
+        }
+
+        function getColorClass(changePercent) {
+            // 使用渐变色
+            if (changePercent >= 5) return 'linear-gradient(135deg, #059669 0%, #10b981 100%)';
+            if (changePercent >= 3) return 'linear-gradient(135deg, #10b981 0%, #34d399 100%)';
+            if (changePercent >= 2) return 'linear-gradient(135deg, #34d399 0%, #6ee7b7 100%)';
+            if (changePercent >= 1) return 'linear-gradient(135deg, #6ee7b7 0%, #a7f3d0 100%)';
+            if (changePercent >= 0) return 'linear-gradient(135deg, #fef08a 0%, #fef3c7 100%)';
+            if (changePercent >= -1) return 'linear-gradient(135deg, #fde68a 0%, #fcd34d 100%)';
+            if (changePercent >= -2) return 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)';
+            if (changePercent >= -3) return 'linear-gradient(135deg, #f87171 0%, #ef4444 100%)';
+            if (changePercent >= -5) return 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
+            return 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)';
+        }
+        
+        function getTextColor(changePercent) {
+            return changePercent >= 0 ? '#ffffff' : '#ffffff';
+        }
+
+        async function loadSectorData() {
+            const grid = document.getElementById('sectorGrid');
+            
+            // Show loading state with progress
+            grid.innerHTML = `
+                <div class="loading-section">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">Loading sector data...</div>
+                    <div class="loading-progress" id="loadingProgress">0/40 stocks</div>
+                </div>
+            `;
+            
+            try {
+                // 收集所有需要加载的股票
+                const allStocks = [];
+                const sectorMap = new Map();
+                
+                sectors.forEach((sector, sectorIndex) => {
+                    sector.stocks.forEach(symbol => {
+                        allStocks.push({ symbol, sectorIndex });
+                        if (!sectorMap.has(sectorIndex)) {
+                            sectorMap.set(sectorIndex, { ...sector, stockSymbols: [] });
+                        }
+                        sectorMap.get(sectorIndex).stockSymbols.push(symbol);
+                    });
+                });
+                
+                // 完全并行加载所有股票（最多 10 个并发）
+                const batchSize = 10;
+                const loadedStocks = new Map();
+                let loadedCount = 0;
+                
+                for (let i = 0; i < allStocks.length; i += batchSize) {
+                    const batch = allStocks.slice(i, i + batchSize);
+                    const batchResults = await Promise.all(
+                        batch.map(async ({ symbol }) => {
+                            const price = await fetchStockPrice(symbol);
+                            return { symbol, price };
+                        })
+                    );
+                    
+                    batchResults.forEach(({ symbol, price }) => {
+                        loadedStocks.set(symbol, price);
+                    });
+                    
+                    loadedCount += batch.length;
+                    document.getElementById('loadingProgress').textContent = `${loadedCount}/${allStocks.length} stocks`;
+                }
+                
+                // 构建板块数据
+                const sectorData = Array.from(sectorMap.values()).map(sector => {
+                    const stockPrices = sector.stockSymbols.map(symbol => loadedStocks.get(symbol) || {});
+                    
+                    // Calculate sector performance
+                    const changes = stockPrices.map(p => p.change_percent || 0);
+                    const validChanges = changes.filter(c => c !== 0);
+                    const avgChange = validChanges.length > 0 
+                        ? validChanges.reduce((a, b) => a + b, 0) / validChanges.length 
+                        : 0;
+                    
+                    // Calculate sentiment score
+                    const positiveCount = changes.filter(c => c > 0).length;
+                    const sentimentScore = changes.length > 0 ? positiveCount / changes.length : 0.5;
+                    
+                    return {
+                        ...sector,
+                        avgChange,
+                        sentimentScore,
+                        stocks: sector.stockSymbols.map(symbol => ({
+                            symbol,
+                            change: loadedStocks.get(symbol)?.change_percent || 0,
+                            price: loadedStocks.get(symbol)?.price || 0
+                        }))
+                    };
+                });
+                
+                // Sort by performance
+                sectorData.sort((a, b) => b.avgChange - a.avgChange);
+                renderHeatmap(sectorData);
+                
+            } catch (error) {
+                console.error('Error loading sector data:', error);
+                grid.innerHTML = '<div class="error-section"><div class="error-message">Failed to load sector data</div></div>';
+            }
+        }
+
+        function renderHeatmap(sectorData) {
+            const grid = document.getElementById('sectorGrid');
+            
+            grid.innerHTML = sectorData.map(sector => {
+                const bgGradient = getColorClass(sector.avgChange);
+                
+                return `
+                    <div class="sector-card" style="background: ${bgGradient};" onclick="window.location.href='/?symbol=${sector.stocks[0].symbol}'">
+                        <div class="sector-header">
+                            <div class="sector-name">${sector.name}</div>
+                            <div class="sector-change" style="color: white; font-weight: 700;">
+                                ${sector.avgChange >= 0 ? '+' : ''}${sector.avgChange.toFixed(2)}%
+                            </div>
+                        </div>
+                        
+                        <div class="sentiment-meter">
+                            <div class="sentiment-fill" style="width: ${sector.sentimentScore * 100}%; background: rgba(255,255,255,0.6);"></div>
+                        </div>
+                        <div style="font-size: 0.75rem; margin-top: 6px; color: rgba(255,255,255,0.9); font-weight: 600; text-align: center;">
+                            Bullish: ${(sector.sentimentScore * 100).toFixed(0)}%
+                        </div>
+                        
+                        <div class="sector-stocks">
+                            ${sector.stocks.map(stock => `
+                                <div class="stock-item" style="color: white;">
+                                    <span class="stock-symbol">${stock.symbol}</span>
+                                    <span style="font-weight: 700; font-size: 0.9rem;">
+                                        ${stock.change >= 0 ? '+' : ''}${stock.change.toFixed(2)}%
+                                    </span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Load on page ready
+        document.addEventListener('DOMContentLoaded', loadSectorData);
+    </script>
+</body>
+</html>

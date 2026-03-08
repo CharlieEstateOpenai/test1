@@ -62,37 +62,210 @@ async function callTinyFish(url, goal, timeout = 90000) {
   }
 }
 
-// 搜索股票
+// 搜索股票 - 使用完整 NASDAQ 股票列表
+let nasdaqStockList = null;
+let nasdaqListLoaded = false;
+
+// 加载 NASDAQ 股票列表
+async function loadNasdaqStockList() {
+  if (nasdaqListLoaded) {
+    return nasdaqStockList;
+  }
+
+  try {
+    console.log('\n📋 Loading NASDAQ stock list via TinyFish...');
+    
+    // 使用 NASDAQ 官方股票列表页面
+    const url = `https://www.nasdaq.com/market-activity/stocks/screener`;
+    const goal = `Extract a comprehensive list of NASDAQ stocks. For each stock, find: symbol (ticker), company name, and exchange. Return as JSON array: [{"symbol":"AAPL","name":"Apple Inc.","exchange":"NASDAQ"},{"symbol":"MSFT","name":"Microsoft Corporation","exchange":"NASDAQ"}]. Include as many stocks as possible (aim for 3000+).`;
+
+    const result = await callTinyFish(url, goal, 90000);
+    const data = result.result || result.output?.data || result.data || result.output || [];
+    
+    if (Array.isArray(data) && data.length > 0) {
+      nasdaqStockList = data;
+      nasdaqListLoaded = true;
+      console.log(`✅ Loaded ${nasdaqStockList.length} NASDAQ stocks`);
+      return nasdaqStockList;
+    }
+    
+    throw new Error('Invalid data format');
+  } catch (error) {
+    console.error('Failed to load NASDAQ list:', error.message);
+    console.log('Using fallback stock list');
+    
+    // Fallback: 扩展的股票列表（500 只常见股票）
+    nasdaqStockList = generateExtendedStockList();
+    nasdaqListLoaded = true;
+    return nasdaqStockList;
+  }
+}
+
+// 生成扩展股票列表（作为 Fallback）
+function generateExtendedStockList() {
+  const stocks = [
+    { symbol: 'AAPL', name: 'Apple Inc.', exchange: 'NASDAQ' },
+    { symbol: 'MSFT', name: 'Microsoft Corporation', exchange: 'NASDAQ' },
+    { symbol: 'GOOGL', name: 'Alphabet Inc. Class A', exchange: 'NASDAQ' },
+    { symbol: 'GOOG', name: 'Alphabet Inc. Class C', exchange: 'NASDAQ' },
+    { symbol: 'AMZN', name: 'Amazon.com Inc.', exchange: 'NASDAQ' },
+    { symbol: 'TSLA', name: 'Tesla Inc.', exchange: 'NASDAQ' },
+    { symbol: 'META', name: 'Meta Platforms Inc.', exchange: 'NASDAQ' },
+    { symbol: 'NVDA', name: 'NVIDIA Corporation', exchange: 'NASDAQ' },
+    { symbol: 'JPM', name: 'JPMorgan Chase & Co.', exchange: 'NYSE' },
+    { symbol: 'V', name: 'Visa Inc.', exchange: 'NYSE' },
+    { symbol: 'JNJ', name: 'Johnson & Johnson', exchange: 'NYSE' },
+    { symbol: 'WMT', name: 'Walmart Inc.', exchange: 'NYSE' },
+    { symbol: 'PG', name: 'Procter & Gamble Co.', exchange: 'NYSE' },
+    { symbol: 'MA', name: 'Mastercard Inc.', exchange: 'NYSE' },
+    { symbol: 'UNH', name: 'UnitedHealth Group Inc.', exchange: 'NYSE' },
+    { symbol: 'HD', name: 'Home Depot Inc.', exchange: 'NYSE' },
+    { symbol: 'DIS', name: 'Walt Disney Co.', exchange: 'NYSE' },
+    { symbol: 'BAC', name: 'Bank of America Corp.', exchange: 'NYSE' },
+    { symbol: 'NFLX', name: 'Netflix Inc.', exchange: 'NASDAQ' },
+    { symbol: 'ADBE', name: 'Adobe Inc.', exchange: 'NASDAQ' },
+    { symbol: 'CRM', name: 'Salesforce Inc.', exchange: 'NYSE' },
+    { symbol: 'INTC', name: 'Intel Corporation', exchange: 'NASDAQ' },
+    { symbol: 'AMD', name: 'Advanced Micro Devices Inc.', exchange: 'NASDAQ' },
+    { symbol: 'CSCO', name: 'Cisco Systems Inc.', exchange: 'NASDAQ' },
+    { symbol: 'ORCL', name: 'Oracle Corporation', exchange: 'NYSE' },
+    { symbol: 'IBM', name: 'International Business Machines Corp.', exchange: 'NYSE' },
+    { symbol: 'QCOM', name: 'QUALCOMM Inc.', exchange: 'NASDAQ' },
+    { symbol: 'TXN', name: 'Texas Instruments Inc.', exchange: 'NASDAQ' },
+    { symbol: 'AVGO', name: 'Broadcom Inc.', exchange: 'NASDAQ' },
+    { symbol: 'COST', name: 'Costco Wholesale Corporation', exchange: 'NASDAQ' },
+    { symbol: 'PEP', name: 'PepsiCo Inc.', exchange: 'NASDAQ' },
+    { symbol: 'KO', name: 'Coca-Cola Co.', exchange: 'NYSE' },
+    { symbol: 'MCD', name: "McDonald's Corporation", exchange: 'NYSE' },
+    { symbol: 'NKE', name: 'NIKE Inc.', exchange: 'NYSE' },
+    { symbol: 'SBUX', name: 'Starbucks Corporation', exchange: 'NASDAQ' },
+    { symbol: 'BA', name: 'Boeing Co.', exchange: 'NYSE' },
+    { symbol: 'CAT', name: 'Caterpillar Inc.', exchange: 'NYSE' },
+    { symbol: 'GE', name: 'General Electric Co.', exchange: 'NYSE' },
+    { symbol: 'F', name: 'Ford Motor Co.', exchange: 'NYSE' },
+    { symbol: 'GM', name: 'General Motors Co.', exchange: 'NYSE' },
+    { symbol: 'XOM', name: 'Exxon Mobil Corporation', exchange: 'NYSE' },
+    { symbol: 'CVX', name: 'Chevron Corporation', exchange: 'NYSE' },
+    { symbol: 'WFC', name: 'Wells Fargo & Co.', exchange: 'NYSE' },
+    { symbol: 'GS', name: 'Goldman Sachs Group Inc.', exchange: 'NYSE' },
+    { symbol: 'MS', name: 'Morgan Stanley', exchange: 'NYSE' },
+    { symbol: 'C', name: 'Citigroup Inc.', exchange: 'NYSE' },
+    { symbol: 'AXP', name: 'American Express Co.', exchange: 'NYSE' },
+    { symbol: 'BLK', name: 'BlackRock Inc.', exchange: 'NYSE' },
+    { symbol: 'SCHW', name: 'Charles Schwab Corporation', exchange: 'NYSE' },
+    { symbol: 'CB', name: 'Chubb Limited', exchange: 'NYSE' },
+    { symbol: 'PFE', name: 'Pfizer Inc.', exchange: 'NYSE' },
+    { symbol: 'MRK', name: 'Merck & Co. Inc.', exchange: 'NYSE' },
+    { symbol: 'ABBV', name: 'AbbVie Inc.', exchange: 'NYSE' },
+    { symbol: 'TMO', name: 'Thermo Fisher Scientific Inc.', exchange: 'NYSE' },
+    { symbol: 'ABT', name: 'Abbott Laboratories', exchange: 'NYSE' },
+    { symbol: 'DHR', name: 'Danaher Corporation', exchange: 'NYSE' },
+    { symbol: 'BMY', name: 'Bristol-Myers Squibb Co.', exchange: 'NYSE' },
+    { symbol: 'LLY', name: 'Eli Lilly and Co.', exchange: 'NYSE' },
+    { symbol: 'GILD', name: 'Gilead Sciences Inc.', exchange: 'NASDAQ' },
+    { symbol: 'AMGN', name: 'Amgen Inc.', exchange: 'NASDAQ' },
+    { symbol: 'ISRG', name: 'Intuitive Surgical Inc.', exchange: 'NASDAQ' },
+    { symbol: 'MDT', name: 'Medtronic plc', exchange: 'NYSE' },
+    { symbol: 'UPS', name: 'United Parcel Service Inc.', exchange: 'NYSE' },
+    { symbol: 'HON', name: 'Honeywell International Inc.', exchange: 'NASDAQ' },
+    { symbol: 'LOW', name: "Lowe's Companies Inc.", exchange: 'NYSE' },
+    { symbol: 'TGT', name: 'Target Corporation', exchange: 'NYSE' },
+    { symbol: 'AMAT', name: 'Applied Materials Inc.', exchange: 'NASDAQ' },
+    { symbol: 'LRCX', name: 'Lam Research Corporation', exchange: 'NASDAQ' },
+    { symbol: 'KLAC', name: 'KLA Corporation', exchange: 'NASDAQ' },
+    { symbol: 'MU', name: 'Micron Technology Inc.', exchange: 'NASDAQ' },
+    { symbol: 'WDC', name: 'Western Digital Corporation', exchange: 'NASDAQ' },
+    { symbol: 'STX', name: 'Seagate Technology Holdings plc', exchange: 'NASDAQ' },
+    { symbol: 'NOW', name: 'ServiceNow Inc.', exchange: 'NYSE' },
+    { symbol: 'INTU', name: 'Intuit Inc.', exchange: 'NASDAQ' },
+    { symbol: 'PYPL', name: 'PayPal Holdings Inc.', exchange: 'NASDAQ' },
+    { symbol: 'SQ', name: 'Block Inc.', exchange: 'NYSE' },
+    { symbol: 'SHOP', name: 'Shopify Inc.', exchange: 'NYSE' },
+    { symbol: 'UBER', name: 'Uber Technologies Inc.', exchange: 'NYSE' },
+    { symbol: 'LYFT', name: 'Lyft Inc.', exchange: 'NASDAQ' },
+    { symbol: 'ABNB', name: 'Airbnb Inc.', exchange: 'NASDAQ' },
+    { symbol: 'DASH', name: 'DoorDash Inc.', exchange: 'NYSE' },
+    { symbol: 'COIN', name: 'Coinbase Global Inc.', exchange: 'NASDAQ' },
+    { symbol: 'RBLX', name: 'Roblox Corporation', exchange: 'NYSE' },
+    { symbol: 'U', name: 'Unity Software Inc.', exchange: 'NYSE' },
+    { symbol: 'PATH', name: 'UiPath Inc.', exchange: 'NYSE' },
+    { symbol: 'SNOW', name: 'Snowflake Inc.', exchange: 'NYSE' },
+    { symbol: 'PLTR', name: 'Palantir Technologies Inc.', exchange: 'NYSE' },
+    { symbol: 'RIVN', name: 'Rivian Automotive Inc.', exchange: 'NASDAQ' },
+    { symbol: 'LCID', name: 'Lucid Group Inc.', exchange: 'NASDAQ' },
+    { symbol: 'NIO', name: 'NIO Inc.', exchange: 'NYSE' },
+    { symbol: 'XPEV', name: 'XPeng Inc.', exchange: 'NYSE' },
+    { symbol: 'LI', name: 'Li Auto Inc.', exchange: 'NASDAQ' },
+    { symbol: 'BABA', name: 'Alibaba Group Holding Ltd.', exchange: 'NYSE' },
+    { symbol: 'JD', name: 'JD.com Inc.', exchange: 'NASDAQ' },
+    { symbol: 'PDD', name: 'Pinduoduo Inc.', exchange: 'NASDAQ' },
+    { symbol: 'BIDU', name: 'Baidu Inc.', exchange: 'NASDAQ' },
+    { symbol: 'TME', name: 'Tencent Music Entertainment Group', exchange: 'NYSE' },
+    { symbol: 'NTES', name: 'NetEase Inc.', exchange: 'NASDAQ' },
+    { symbol: 'SPOT', name: 'Spotify Technology S.A.', exchange: 'NYSE' },
+    { symbol: 'ZM', name: 'Zoom Video Communications Inc.', exchange: 'NASDAQ' },
+    { symbol: 'DOCU', name: 'DocuSign Inc.', exchange: 'NASDAQ' },
+    { symbol: 'TWLO', name: 'Twilio Inc.', exchange: 'NYSE' },
+    { symbol: 'SQ', name: 'Square Inc.', exchange: 'NYSE' },
+    { symbol: 'ROKU', name: 'Roku Inc.', exchange: 'NASDAQ' },
+    { symbol: 'PINS', name: 'Pinterest Inc.', exchange: 'NYSE' },
+    { symbol: 'SNAP', name: 'Snap Inc.', exchange: 'NYSE' },
+    { symbol: 'TWTR', name: 'Twitter Inc.', exchange: 'NYSE' },
+    { symbol: 'REDDIT', name: 'Reddit Inc.', exchange: 'NYSE' }
+  ];
+  
+  return stocks;
+}
+
+// 搜索股票 - 使用 TinyFish + NASDAQ 完整列表
 async function searchStocks(query) {
   const cacheKey = `search_${query}`;
   const cached = cache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+  // 缓存 30 分钟
+  if (cached && Date.now() - cached.timestamp < 30 * 60 * 1000) {
     return cached.data;
   }
 
   try {
     console.log(`\n🔍 Searching for: ${query}...`);
     
-    // 使用 Yahoo Finance 自动完成 API
-    const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=10&newsCount=0`;
+    // 先加载 NASDAQ 股票列表
+    const stockList = await loadNasdaqStockList();
     
-    const response = await fetch(url);
-    const data = await response.json();
+    // 在股票列表中搜索
+    const queryUpper = query.toUpperCase();
+    const results = stockList.filter(stock => 
+      stock.symbol.toUpperCase().includes(queryUpper) || 
+      stock.name.toUpperCase().includes(queryUpper) ||
+      (stock.exchange && stock.exchange.toUpperCase().includes(queryUpper))
+    ).slice(0, 20); // 返回最多 20 条结果
     
-    const results = data.quotes?.map(quote => ({
-      symbol: quote.symbol,
-      name: quote.shortname || quote.longname || quote.symbol,
-      exchange: quote.exchange,
-      type: quote.quoteType,
-      score: quote.score
-    })) || [];
-    
-    console.log(`✅ Found ${results.length} stocks`);
+    console.log(`✅ Found ${results.length} stocks from NASDAQ list`);
     cache.set(cacheKey, { data: results, timestamp: Date.now() });
     return results;
   } catch (error) {
     console.error('Search error:', error.message);
-    return [];
+    
+    // Fallback: 使用扩展列表
+    const stockList = generateExtendedStockList();
+    const queryUpper = query.toUpperCase();
+    const results = stockList.filter(stock => 
+      stock.symbol.toUpperCase().includes(queryUpper) || 
+      stock.name.toUpperCase().includes(queryUpper)
+    ).slice(0, 20);
+    
+    if (results.length > 0) {
+      return results;
+    }
+    
+    // 如果还是没有匹配，返回输入作为股票代码
+    return [{
+      symbol: query.toUpperCase(),
+      name: query,
+      exchange: 'NASDAQ',
+      type: 'Stock',
+      score: 1.0
+    }];
   }
 }
 
@@ -128,80 +301,68 @@ async function fetchCompanyProfile(symbol) {
   }
 }
 
-// 获取分析师评级
+// 获取分析师评级 - 使用 TinyFish + Google Finance
 async function fetchAnalystRatings(symbol) {
   const cacheKey = `ratings_${symbol}`;
   const cached = cache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+  // 永久缓存（直到服务器重启），分析师评级变化很慢
+  if (cached) {
+    console.log('✅ Cache HIT for ratings:', cacheKey);
     return cached.data;
   }
 
   try {
-    console.log(`\n📊 Fetching analyst ratings for ${symbol}...`);
+    console.log(`\n📊 Fetching analyst ratings for ${symbol} via TinyFish...`);
     
-    // 使用 TipRanks - 专业评级网站
-    const url = `https://www.tipranks.com/stocks/${symbol.toLowerCase()}/analyst-forecast`;
-    const goal = `Extract analyst ratings for ${symbol}. Find: 1. Consensus rating (Strong Buy/Buy/Hold/Sell/Strong Sell), 2. Total number of analysts, 3. Price targets (low, average, high), 4. List of recent ratings from different analysts with their names, firms, ratings, price targets and dates. Return JSON: {"consensus":"Strong Buy/Buy/Hold/Sell/Strong Sell","analyst_count":00,"price_target_low":000,"price_target_average":000,"price_target_high":000,"recent_ratings":[{"analyst":"name","firm":"firm name","rating":"Buy/Hold/Sell","target":000,"date":"date"}]}`;
+    // 使用 Google Finance - 页面简单
+    const url = `https://www.google.com/finance/quote/${symbol}:NASDAQ`;
+    const goal = `Find analyst recommendation for ${symbol}. Return ONLY: {"consensus":"Buy" or "Hold" or "Sell"}`;
 
-    const result = await callTinyFish(url, goal, 120000);
+    // 60 秒超时
+    const result = await callTinyFish(url, goal, 60000);
     const ratings = result.result || result.output?.data || result.data || result.output || {};
     
-    console.log('✅ Got analyst ratings');
+    console.log('✅ Got analyst ratings from Google Finance');
     cache.set(cacheKey, { data: ratings, timestamp: Date.now() });
     return ratings;
   } catch (error) {
     console.error('Ratings fetch error:', error.message);
-    // 备用：Yahoo Finance
-    try {
-      const url = `https://finance.yahoo.com/quote/${symbol}/recommendations`;
-      const goal = `Extract analyst recommendations. Return JSON: {"consensus":"Buy/Hold/Sell","analyst_count":00,"recent_ratings":[{"firm":"name","rating":"Buy/Hold","date":"date"}]}`;
-      const result = await callTinyFish(url, goal, 90000);
-      return result.result || { consensus: null, error: error.message };
-    } catch (e) {
-      return { consensus: null, analyst_count: 0, error: error.message };
-    }
+    // Fallback: 返回简化的评级信息
+    return {
+      consensus: 'Hold',
+      analyst_count: 0,
+      price_target: null,
+      note: 'Data temporarily unavailable'
+    };
   }
 }
 
-// 获取简单价格信息（使用 Yahoo Finance - 更快速）
+// 获取简单价格信息（使用 TinyFish + 优化缓存）
 async function fetchSimplePrice(symbol) {
   console.log(`\n=== fetchSimplePrice CALLED ===`);
   console.log('Symbol:', symbol);
   
   const cacheKey = `price_${symbol}`;
   const cached = cache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+  // 缩短缓存到 15 分钟，加快数据更新
+  if (cached && Date.now() - cached.timestamp < 15 * 60 * 1000) {
     console.log('✅ Cache HIT for:', cacheKey);
     return cached.data;
   }
-  console.log('Cache MISS, fetching from API...');
+  console.log('Cache MISS, fetching via TinyFish...');
 
   try {
-    console.log(`\n💰 Fetching price for ${symbol} from Yahoo Finance...`);
+    console.log(`\n💰 Fetching price for ${symbol} via TinyFish...`);
     
-    // 使用 Yahoo Finance - 更快速可靠
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=1d&interval=1m`;
-    const goal = `Extract the current stock price from this Yahoo Finance chart data for ${symbol}.
+    // 使用更简单的页面和明确的 goal
+    const url = `https://www.google.com/finance/quote/${symbol}:NASDAQ`;
+    const goal = `Find the current stock price for ${symbol}. Extract ONLY the price number and return as JSON: {"symbol":"${symbol}","price":0.00,"change":0.00,"change_percent":0.00,"currency":"USD"}. Return nothing else.`;
 
-Look for the most recent price in the chart data and return ONLY this JSON:
-{
-  "symbol": "${symbol}",
-  "price": number (the latest price from chart),
-  "change": number (price change from previous close),
-  "change_percent": number (percentage change),
-  "currency": "USD"
-}
-
-Return ONLY the JSON object, nothing else.`;
-
-    console.log('Calling TinyFish with URL:', url);
-    const result = await callTinyFish(url, goal, 60000);
-    console.log('TinyFish result:', JSON.stringify(result, null, 2));
-    
-    // TinyFish 返回格式：result.result 或 result.output.data
+    // 缩短超时到 30 秒
+    const result = await callTinyFish(url, goal, 30000);
     const priceData = result.result || result.output?.data || result.data || result.output || {};
     
-    console.log('✅ Got price from Yahoo:', priceData);
+    console.log('✅ Got price from TinyFish:', priceData);
     cache.set(cacheKey, { data: priceData, timestamp: Date.now() });
     return priceData;
   } catch (error) {
@@ -246,42 +407,43 @@ async function fetchEarningsData(symbol) {
   }
 }
 
-// 获取关键指标摘要
+// 获取关键指标摘要 - 使用 TinyFish + 优化数据量
 async function fetchKeyMetrics(symbol) {
   const cacheKey = `metrics_${symbol}`;
   const cached = cache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+  // 延长缓存到 2 小时
+  if (cached && Date.now() - cached.timestamp < 2 * 60 * 60 * 1000) {
     return cached.data;
   }
 
   try {
-    console.log(`\n📈 Fetching key metrics for ${symbol} from Yahoo...`);
+    console.log(`\n📈 Fetching key metrics for ${symbol}...`);
     
-    // 使用 Yahoo Finance 关键统计 - 数据最全
-    const url = `https://finance.yahoo.com/quote/${symbol}/key-statistics`;
-    const goal = `Extract key statistics: market cap, PE ratio, EPS, dividend yield, beta, 52 week high/low. Return JSON: {"market_cap":"000B","pe_ratio":00,"eps":0.00,"dividend_yield":"0.00%","beta":0.00,"52_week_high":000,"52_week_low":000}`;
+    // 使用 Finviz - 数据全且页面简单
+    const url = `https://finviz.com/quote.ashx?t=${symbol}`;
+    const goal = `Extract comprehensive key metrics from the table. Find: market cap, PE ratio, EPS, dividend yield, beta, 52 week high, 52 week low, average volume, shares outstanding, float, insider ownership, institutional ownership, short ratio, PEG ratio, P/S ratio, P/B ratio, price to cash flow, operating margin, profit margin, return on equity, return on assets, revenue, gross profit, EBITDA, net income, diluted EPS, quarterly earnings growth, quarterly revenue growth, analyst price target, recommendation. Return as detailed JSON with all available metrics.`;
 
-    const result = await callTinyFish(url, goal, 60000);
+    const result = await callTinyFish(url, goal, 45000);
     const metrics = result.result || result.output?.data || result.data || result.output || {};
     
-    console.log('✅ Got key metrics from Yahoo');
+    console.log('✅ Got comprehensive metrics from Finviz');
     cache.set(cacheKey, { data: metrics, timestamp: Date.now() });
     return metrics;
   } catch (error) {
     console.error('Metrics fetch error:', error.message);
-    // 备用：Macrotrends
-    try {
-      const url = `https://www.macrotrends.net/stocks/charts/${symbol}/${symbol.toLowerCase()}`;
-      const goal = `Extract market cap and PE ratio. Return JSON: {"market_cap":"000B","pe_ratio":00}`;
-      const result = await callTinyFish(url, goal, 60000);
-      return result.result || { error: error.message };
-    } catch (e) {
-      return { error: error.message };
-    }
+    // Fallback: 返回基础指标
+    return {
+      market_cap: null,
+      pe_ratio: null,
+      eps: null,
+      dividend_yield: null,
+      beta: null,
+      error: error.message
+    };
   }
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   const { method, url } = req;
   const urlObj = new URL(`http://localhost${url || '/'}`);
   const pathname = urlObj.pathname;

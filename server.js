@@ -2,6 +2,19 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
+// 加载环境变量
+const envPath = path.join(__dirname, '.env.local');
+if (fs.existsSync(envPath)) {
+  const envContent = fs.readFileSync(envPath, 'utf-8');
+  envContent.split('\n').forEach(line => {
+    const [key, value] = line.split('=');
+    if (key && value) {
+      process.env[key.trim()] = value.trim().replace(/"/g, '');
+    }
+  });
+  console.log('✅ Environment variables loaded from .env.local');
+}
+
 const PORT = process.env.PORT || 3000;
 
 const MIME_TYPES = {
@@ -57,7 +70,7 @@ const server = http.createServer(async (req, res) => {
     };
     
     try {
-      await apiHandler.default(mockReq, mockRes);
+      await apiHandler(mockReq, mockRes);
     } catch (error) {
       console.error('API Error:', error);
       res.statusCode = 500;

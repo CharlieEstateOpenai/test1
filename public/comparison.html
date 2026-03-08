@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Comparison - Nasdaq Stock Analysis</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .comparison-container {
+            background: white;
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .comparison-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        
+        .comparison-header h2 {
+            font-size: 2rem;
+            margin-bottom: 12px;
+        }
+        
+        .comparison-controls {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 32px;
+            flex-wrap: wrap;
+        }
+        
+        .stock-selector {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .stock-selector input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+        
+        .add-btn {
+            padding: 12px 24px;
+            background: #0066cc;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .add-btn:hover {
+            background: #0052a3;
+        }
+        
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-top: 32px;
+        }
+        
+        .comparison-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            position: relative;
+        }
+        
+        .remove-btn {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: #dc2626;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        
+        .metric-comparison {
+            margin-top: 24px;
+        }
+        
+        .metric-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .metric-row:last-child {
+            border-bottom: none;
+        }
+        
+        .metric-label {
+            font-weight: 600;
+            color: #666;
+        }
+        
+        .metric-values {
+            display: flex;
+            gap: 16px;
+        }
+        
+        .stock-value {
+            min-width: 100px;
+            text-align: right;
+            font-weight: 600;
+        }
+        
+        .best-value {
+            color: #16a34a;
+            background: #dcfce7;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+        
+        .worst-value {
+            color: #dc2626;
+            background: #fee2e2;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <span class="logo">📈</span>
+                <h1>Nasdaq Stock Analysis</h1>
+            </div>
+            <div class="nav-links">
+                <a href="/" class="nav-link">Home</a>
+                <a href="/trending.html" class="nav-link">Trending</a>
+                <a href="/about.html" class="nav-link">About</a>
+                <a href="/comparison.html" class="nav-link active">Compare</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container main-content">
+        <div class="comparison-container">
+            <div class="comparison-header">
+                <h2>🔍 Stock Comparison</h2>
+                <p>Compare up to 5 stocks side by side</p>
+            </div>
+            
+            <div class="comparison-controls">
+                <div class="stock-selector">
+                    <input type="text" id="stockInput" placeholder="Enter stock symbol (e.g., AAPL)" maxlength="5">
+                </div>
+                <button onclick="addStock()" class="add-btn">+ Add Stock</button>
+            </div>
+            
+            <div id="comparisonGrid" class="comparison-grid">
+                <div class="no-data" style="grid-column: 1/-1; padding: 48px;">
+                    <h3>No stocks selected</h3>
+                    <p>Add stocks above to start comparing</p>
+                </div>
+            </div>
+            
+            <div id="metricComparison" class="metric-comparison" style="display: none;">
+                <h3 style="margin-bottom: 16px;">Detailed Comparison</h3>
+                <div id="metricsTable"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let stocksToCompare = ['AAPL', 'MSFT', 'GOOGL']; // Default stocks
+        let stockData = {};
+
+        async function fetchStockData(symbol) {
+            try {
+                const [priceRes, metricsRes, ratingsRes] = await Promise.all([
+                    fetch(`/api/stock/${symbol}/price`),
+                    fetch(`/api/stock/${symbol}/metrics`),
+                    fetch(`/api/stock/${symbol}/ratings`)
+                ]);
+                
+                const price = await priceRes.json();
+                const metrics = await metricsRes.json();
+                const ratings = await ratingsRes.json();
+                
+                return {
+                    symbol,
+                    price: price.data || {},
+                    metrics: metrics.data || {},
+                    ratings: ratings.data || {}
+                };
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                return null;
+            }
+        }
+
+        async function addStock() {
+            const input = document.getElementById('stockInput');
+            const symbol = input.value.trim().toUpperCase();
+            
+            if (!symbol) return;
+            
+            if (stocksToCompare.includes(symbol)) {
+                alert(`${symbol} is already in comparison`);
+                return;
+            }
+            
+            if (stocksToCompare.length >= 5) {
+                alert('Maximum 5 stocks can be compared');
+                return;
+            }
+            
+            stocksToCompare.push(symbol);
+            input.value = '';
+            
+            await loadComparison();
+        }
+
+        function removeStock(symbol) {
+            stocksToCompare = stocksToCompare.filter(s => s !== symbol);
+            loadComparison();
+        }
+
+        async function loadComparison() {
+            if (stocksToCompare.length === 0) {
+                document.getElementById('comparisonGrid').innerHTML = `
+                    <div class="no-data" style="grid-column: 1/-1; padding: 48px;">
+                        <h3>No stocks selected</h3>
+                        <p>Add stocks above to start comparing</p>
+                    </div>
+                `;
+                document.getElementById('metricComparison').style.display = 'none';
+                return;
+            }
+            
+            // Fetch data for all stocks
+            const grid = document.getElementById('comparisonGrid');
+            grid.innerHTML = '<div class="loading-section" style="display: block;"><div class="loading-spinner"></div><div class="loading-text">Loading stock data...</div></div>';
+            
+            stockData = {};
+            for (const symbol of stocksToCompare) {
+                const data = await fetchStockData(symbol);
+                if (data) {
+                    stockData[symbol] = data;
+                }
+            }
+            
+            renderComparison();
+        }
+
+        function renderComparison() {
+            const grid = document.getElementById('comparisonGrid');
+            
+            grid.innerHTML = stocksToCompare.map(symbol => {
+                const data = stockData[symbol] || {};
+                const price = data.price || {};
+                const metrics = data.metrics || {};
+                const ratings = data.ratings || {};
+                
+                const currentPrice = price.price || price.current_price || 0;
+                const change = price.change || 0;
+                const changePercent = price.change_percent || 0;
+                const isPositive = change >= 0;
+                
+                return `
+                    <div class="comparison-card">
+                        <button onclick="removeStock('${symbol}')" class="remove-btn">×</button>
+                        <h3 style="margin-bottom: 16px;">${symbol}</h3>
+                        <div style="font-size: 2rem; font-weight: 700; margin-bottom: 8px;">$${currentPrice.toFixed(2)}</div>
+                        <div style="color: ${isPositive ? '#16a34a' : '#dc2626'}; font-weight: 600;">
+                            ${isPositive ? '+' : ''}$${change.toFixed(2)} (${isPositive ? '+' : ''}${changePercent.toFixed(2)}%)
+                        </div>
+                        
+                        <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #e0e0e0;">
+                            <div style="margin-bottom: 12px;">
+                                <div style="font-size: 0.85rem; color: #666;">Market Cap</div>
+                                <div style="font-weight: 600;">${metrics.market_cap || 'N/A'}</div>
+                            </div>
+                            <div style="margin-bottom: 12px;">
+                                <div style="font-size: 0.85rem; color: #666;">P/E Ratio</div>
+                                <div style="font-weight: 600;">${metrics.pe_ratio || 'N/A'}</div>
+                            </div>
+                            <div style="margin-bottom: 12px;">
+                                <div style="font-size: 0.85rem; color: #666;">Analyst Rating</div>
+                                <div style="font-weight: 600;">${ratings.consensus || 'N/A'}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            renderMetricsComparison();
+        }
+
+        function renderMetricsComparison() {
+            const metricsTable = document.getElementById('metricsTable');
+            const metricsToShow = [
+                { key: 'market_cap', label: 'Market Cap' },
+                { key: 'pe_ratio', label: 'P/E Ratio' },
+                { key: 'eps', label: 'EPS' },
+                { key: 'dividend_yield', label: 'Dividend Yield' },
+                { key: 'beta', label: 'Beta' }
+            ];
+            
+            let html = '';
+            
+            metricsToShow.forEach(metric => {
+                const values = stocksToCompare.map(symbol => {
+                    const data = stockData[symbol];
+                    return data && data.metrics ? data.metrics[metric.key] : null;
+                });
+                
+                const validValues = values.filter(v => v !== null && v !== undefined && v !== 'N/A');
+                const maxVal = validValues.length > 0 ? Math.max(...validValues.map(v => parseFloat(v) || 0)) : null;
+                const minVal = validValues.length > 0 ? Math.min(...validValues.map(v => parseFloat(v) || 0)) : null;
+                
+                html += `
+                    <div class="metric-row">
+                        <span class="metric-label">${metric.label}</span>
+                        <div class="metric-values">
+                            ${stocksToCompare.map((symbol, idx) => {
+                                const val = values[idx];
+                                const numVal = parseFloat(val) || 0;
+                                let className = 'stock-value';
+                                
+                                if (metric.key === 'pe_ratio' || metric.key === 'beta') {
+                                    // Lower is better for P/E and Beta
+                                    if (numVal === minVal && numVal > 0) className += ' best-value';
+                                    if (numVal === maxVal) className += ' worst-value';
+                                } else {
+                                    // Higher is better for others
+                                    if (numVal === maxVal) className += ' best-value';
+                                    if (numVal === minVal && numVal > 0) className += ' worst-value';
+                                }
+                                
+                                return `<span class="${className}">${val || 'N/A'}</span>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            metricsTable.innerHTML = html;
+            document.getElementById('metricComparison').style.display = 'block';
+        }
+
+        // Load default stocks on page load
+        document.addEventListener('DOMContentLoaded', loadComparison);
+
+        // Enter key to add stock
+        document.getElementById('stockInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') addStock();
+        });
+    </script>
+</body>
+</html>

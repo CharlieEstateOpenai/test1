@@ -437,38 +437,94 @@ function displayMetrics(data) {
         return;
     }
     
-    const metrics = [
-        { label: 'Market Cap', key: 'market_cap', format: 'string' },
-        { label: 'P/E Ratio', key: 'pe_ratio', format: 'number' },
-        { label: 'Forward PE', key: 'forward_pe', format: 'number' },
-        { label: 'EPS', key: 'eps', format: 'currency' },
-        { label: 'Dividend Yield', key: 'dividend_yield', format: 'string' },
-        { label: 'Beta', key: 'beta', format: 'number' },
-        { label: '52W High', key: '52_week_high', format: 'currency' },
-        { label: '52W Low', key: '52_week_low', format: 'currency' },
-        { label: 'Avg Volume', key: 'avg_volume', format: 'number' }
-    ];
+    // 定义更多指标，按类别分组
+    const metricsByCategory = {
+        'Valuation': [
+            { label: 'Market Cap', key: 'market_cap', format: 'string' },
+            { label: 'P/E Ratio', key: 'pe_ratio', format: 'number' },
+            { label: 'Forward PE', key: 'forward_pe', format: 'number' },
+            { label: 'PEG Ratio', key: 'peg_ratio', format: 'number' },
+            { label: 'P/S Ratio', key: 'ps_ratio', format: 'number' },
+            { label: 'P/B Ratio', key: 'pb_ratio', format: 'number' },
+            { label: 'Price/Cash Flow', key: 'price_cash_flow', format: 'number' }
+        ],
+        'Profitability': [
+            { label: 'EPS', key: 'eps', format: 'currency' },
+            { label: 'Operating Margin', key: 'operating_margin', format: 'percent' },
+            { label: 'Profit Margin', key: 'profit_margin', format: 'percent' },
+            { label: 'Return on Equity', key: 'roe', format: 'percent' },
+            { label: 'Return on Assets', key: 'roa', format: 'percent' }
+        ],
+        'Trading Info': [
+            { label: 'Beta', key: 'beta', format: 'number' },
+            { label: '52W High', key: '52_week_high', format: 'currency' },
+            { label: '52W Low', key: '52_week_low', format: 'currency' },
+            { label: 'Avg Volume', key: 'avg_volume', format: 'number' },
+            { label: 'Shares Out', key: 'shares_outstanding', format: 'number' },
+            { label: 'Float', key: 'float', format: 'number' }
+        ],
+        'Ownership': [
+            { label: 'Insider Own', key: 'insider_ownership', format: 'percent' },
+            { label: 'Institutional', key: 'institutional_ownership', format: 'percent' },
+            { label: 'Short Ratio', key: 'short_ratio', format: 'number' }
+        ],
+        'Dividends': [
+            { label: 'Dividend Yield', key: 'dividend_yield', format: 'percent' }
+        ],
+        'Growth': [
+            { label: 'Quarterly Earnings Growth', key: 'quarterly_earnings_growth', format: 'percent' },
+            { label: 'Quarterly Revenue Growth', key: 'quarterly_revenue_growth', format: 'percent' }
+        ]
+    };
     
-    let html = '<div class="metrics-grid">';
+    let html = '<div class="metrics-sections">';
     
-    metrics.forEach(metric => {
-        const value = data[metric.key];
-        let displayValue = 'N/A';
+    // 为每个类别创建卡片
+    Object.entries(metricsByCategory).forEach(([category, metrics]) => {
+        const categoryMetrics = metrics.filter(m => {
+            const value = data[m.key];
+            return value !== null && value !== undefined && value !== 'N/A';
+        });
         
-        if (value !== null && value !== undefined) {
-            if (metric.format === 'currency') {
-                displayValue = `$${typeof value === 'number' ? value.toFixed(2) : value}`;
-            } else if (metric.format === 'number') {
-                displayValue = typeof value === 'number' ? value.toFixed(2) : value;
-            } else {
-                displayValue = value;
-            }
-        }
+        if (categoryMetrics.length === 0) return;
         
         html += `
-            <div class="metric-item">
-                <span class="metric-label">${metric.label}</span>
-                <span class="metric-value">${displayValue}</span>
+            <div class="metric-category">
+                <h4 class="metric-category-title">${category}</h4>
+                <div class="metrics-grid">
+        `;
+        
+        categoryMetrics.forEach(metric => {
+            const value = data[metric.key];
+            let displayValue = 'N/A';
+            
+            if (value !== null && value !== undefined) {
+                if (metric.format === 'currency') {
+                    displayValue = `$${typeof value === 'number' ? value.toFixed(2) : value}`;
+                } else if (metric.format === 'percent') {
+                    // 处理百分比格式
+                    if (typeof value === 'number') {
+                        displayValue = `${value > 1 ? (value / 100).toFixed(2) : value.toFixed(2)}%`;
+                    } else {
+                        displayValue = value.includes('%') ? value : `${value}%`;
+                    }
+                } else if (metric.format === 'number') {
+                    displayValue = typeof value === 'number' ? value.toFixed(2) : value;
+                } else {
+                    displayValue = value;
+                }
+            }
+            
+            html += `
+                <div class="metric-item">
+                    <span class="metric-label">${metric.label}</span>
+                    <span class="metric-value">${displayValue}</span>
+                </div>
+            `;
+        });
+        
+        html += `
+                </div>
             </div>
         `;
     });
@@ -570,4 +626,16 @@ function handleAddToWatchlist() {
     }, 2000);
     
     alert(`${currentSymbol} added to your watchlist!`);
+}
+
+function navigateTo(page) {
+    // Update active nav link
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.remove('active');
+    });
+    
+    const activeLink = document.querySelector(`.nav-link[onclick="navigateTo('${page}')"]`);
+    if (activeLink) {
+        activeLink.classList.add('active');
+    }
 }
