@@ -10,7 +10,6 @@ async function callTinyFish(url, goal, timeout = 90000) {
   console.log('=== TinyFish API Call Start ===');
   console.log('URL:', url);
   console.log('Goal:', goal);
-  console.log('API Key exists:', !!apiKey);
 
   if (!apiKey) {
     throw new Error("TINYFISH_API_KEY not configured");
@@ -20,6 +19,8 @@ async function callTinyFish(url, goal, timeout = 90000) {
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   try {
+    console.log('Calling TinyFish API...');
+    
     const response = await fetch('https://agent.tinyfish.ai/v1/automation/run', {
       method: "POST",
       headers: {
@@ -36,16 +37,32 @@ async function callTinyFish(url, goal, timeout = 90000) {
     clearTimeout(timeoutId);
     console.log('Response status:', response.status);
 
+    // 先获取文本，检查是否为 JSON
+    const text = await response.text();
+    console.log('Response text length:', text.length);
+    console.log('Response preview:', text.substring(0, 200));
+
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('TinyFish API error:', response.status, errorText);
+      console.error('TinyFish API error:', response.status, text);
       throw new Error(`TinyFish API error ${response.status}`);
     }
 
-    const result = await response.json();
-    console.log('TinyFish API success, result keys:', Object.keys(result));
-    console.log('=== TinyFish API Call End ===\n');
-    return result;
+    // 检查是否是 HTML 错误页面
+    if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
+      console.error('Received HTML instead of JSON');
+      throw new Error('TinyFish API returned HTML instead of JSON');
+    }
+
+    try {
+      const result = JSON.parse(text);
+      console.log('TinyFish API success, result keys:', Object.keys(result));
+      console.log('=== TinyFish API Call End ===\n');
+      return result;
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError.message);
+      console.error('Response text:', text.substring(0, 500));
+      throw new Error('Invalid JSON response from TinyFish API');
+    }
   } catch (error) {
     clearTimeout(timeoutId);
     console.error('TinyFish call error:', error.message);

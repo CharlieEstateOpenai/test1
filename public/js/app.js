@@ -37,11 +37,32 @@ async function handleSearch() {
     showLoading();
     
     try {
+        console.log('Starting search for:', query);
+        
         // 先搜索股票
         const searchResponse = await fetch(`${API_BASE}/api/search?q=${encodeURIComponent(query)}`);
-        const searchData = await searchResponse.json();
+        console.log('Search response status:', searchResponse.status);
         
-        if (!searchResponse.ok) {
+        const text = await searchResponse.text();
+        console.log('Search response text length:', text.length);
+        console.log('Search response preview:', text.substring(0, 200));
+        
+        // 检查是否是 HTML
+        if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html') || text.trim().startsWith('<!doctype')) {
+            throw new Error('服务器返回了 HTML 而不是 JSON，可能是 API 错误');
+        }
+        
+        let searchData;
+        try {
+            searchData = JSON.parse(text);
+        } catch (parseError) {
+            console.error('JSON parse error:', parseError.message);
+            throw new Error('API 返回了无效的数据格式');
+        }
+        
+        console.log('Parsed search data:', searchData);
+        
+        if (!searchResponse.ok || searchData.error) {
             throw new Error(searchData.error || '搜索失败');
         }
 
@@ -51,6 +72,7 @@ async function handleSearch() {
             hideLoading();
         } else {
             // 如果没有搜索结果，尝试直接作为股票代码查询
+            console.log('No search results, trying direct stock lookup');
             await loadStockDetail(query.toUpperCase());
         }
     } catch (error) {
