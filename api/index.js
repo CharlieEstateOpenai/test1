@@ -82,14 +82,33 @@ async function fetchStockPosition(symbol) {
     return cached.data;
   }
 
-  const searchUrl = `https://www.google.com/search?q=${symbol}+stock+price`;
-  const goal = `Find the current stock price and basic information for ${symbol}. Return ONLY a JSON object with: symbol, company_name, current_price, price_change, price_change_percent, market_cap, pe_ratio. Example: {"symbol":"AAPL","company_name":"Apple Inc.","current_price":175.50,"price_change":2.30,"price_change_percent":1.33,"market_cap":"2.8T","pe_ratio":28.5}`;
+  // 使用 Yahoo Finance - 更可靠的股票数据源
+  const searchUrl = `https://finance.yahoo.com/quote/${symbol}`;
+  const goal = `Extract ALL stock data from this Yahoo Finance page for ${symbol}. 
+
+Find and return as JSON:
+1. Current stock price (number)
+2. Company name
+3. Price change and percent
+4. Market cap
+5. P/E ratio
+6. EPS
+7. Volume
+8. Open, High, Low, Previous Close
+9. 52 week range
+10. Dividend yield
+
+IMPORTANT: Return ONLY valid JSON like this:
+{"symbol":"${symbol}","company_name":"Company Name","current_price":123.45,"price_change":1.23,"price_change_percent":1.0,"market_cap":"100B","pe_ratio":25.5,"eps":5.2,"volume":1000000,"open":122.0,"high":124.0,"low":121.0,"previous_close":122.22,"fifty_two_week_high":150.0,"fifty_two_week_low":100.0,"dividend_yield":"1.5%"}
+
+If you cannot find the page, return: {"error":"Page not found"}`;
   
   try {
-    console.log(`Fetching stock data for ${symbol} from TinyFish...`);
-    const result = await callTinyFish(searchUrl, goal, 90000);
+    console.log(`\n=== Fetching ${symbol} from Yahoo Finance ===`);
+    const result = await callTinyFish(searchUrl, goal, 120000);
     
-    console.log('TinyFish raw result:', JSON.stringify(result, null, 2));
+    console.log('\n🔍 TinyFish Raw Response:');
+    console.log(JSON.stringify(result, null, 2));
     
     // 尝试从各种可能的字段中提取数据
     let data = null;
@@ -98,49 +117,79 @@ async function fetchStockPosition(symbol) {
       data = result.output.data;
     } else if (result.data) {
       data = result.data;
-    } else if (result.output) {
-      // 如果 output 是字符串，尝试解析
-      if (typeof result.output === 'string') {
-        try {
-          data = JSON.parse(result.output);
-        } catch (e) {
-          console.warn('Output is string but not JSON:', result.output.substring(0, 200));
-          data = { company_name: result.output };
+    } else if (typeof result.output === 'string') {
+      try {
+        data = JSON.parse(result.output);
+      } catch (e) {
+        console.log('Output is text, trying to extract...');
+        // 尝试从文本中提取 JSON
+        const jsonMatch = result.output.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            data = JSON.parse(jsonMatch[0]);
+          } catch (e2) {
+            console.warn('Could not parse extracted JSON');
+          }
         }
-      } else {
-        data = result.output;
       }
+    } else if (result.output && typeof result.output === 'object') {
+      data = result.output;
     } else {
-      // 最后尝试整个 result
       data = result;
     }
     
-    console.log('Extracted data:', data);
+    console.log('\n📊 Extracted Data:', data);
     
-    // 确保至少有 symbol 或 company_name
-    if (!data || (!data.symbol && !data.company_name && !data.current_price)) {
-      console.warn('No valid data extracted, using fallback');
-      // 返回一个基本的结构，让前端能显示
-      data = {
-        symbol: symbol,
-        company_name: `${symbol} Corporation`,
-        current_price: null,
-        message: '数据提取中，请稍后重试'
-      };
+    // 验证数据有效性
+    if (!data || data.error || (!data.current_price && !data.company_name)) {
+      console.warn('⚠️ No valid data, using enhanced fallback');
+      data = generateFallbackData(symbol);
     }
     
     cache.set(cacheKey, { data, timestamp: Date.now() });
     return data;
   } catch (error) {
-    console.error(`Stock position fetch error:`, error.message);
-    // 错误时也返回基本结构
-    return {
-      symbol: symbol,
-      company_name: `${symbol} Corporation`,
-      current_price: null,
-      error: error.message
-    };
+    console.error(`❌ Stock position fetch error:`, error.message);
+    return generateFallbackData(symbol, error.message);
   }
+}
+
+// 生成 fallback 数据（带真实数据的模拟）
+function generateFallbackData(symbol, errorMsg = null) {
+  // 常见公司映射
+  const companyMap = {
+    'AAPL': 'Apple Inc.',
+    'GOOGL': 'Alphabet Inc.',
+    'GOOG': 'Alphabet Inc.',
+    'MSFT': 'Microsoft Corporation',
+    'AMZN': 'Amazon.com Inc.',
+    'TSLA': 'Tesla Inc.',
+    'META': 'Meta Platforms Inc.',
+    'NVDA': 'NVIDIA Corporation',
+    'JPM': 'JPMorgan Chase & Co.',
+    'V': 'Visa Inc.'
+  };
+  
+  return {
+    symbol: symbol,
+    company_name: companyMap[symbol] || `${symbol} Corporation`,
+    current_price: null,
+    price_change: null,
+    price_change_percent: null,
+    market_cap: null,
+    pe_ratio: null,
+    eps: null,
+    volume: null,
+    open: null,
+    high: null,
+    low: null,
+    previous_close: null,
+    fifty_two_week_high: null,
+    fifty_two_week_low: null,
+    dividend_yield: null,
+    message: errorMsg || '数据加载中，请查看 Console 日志',
+    _debug: 'Check Vercel logs for TinyFish response'
+  };
 }
 
 // 获取股票历史数据
