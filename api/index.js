@@ -163,11 +163,16 @@ Return JSON:
 
 // 获取简单价格信息（使用 Nasdaq API）
 async function fetchSimplePrice(symbol) {
+  console.log(`\n=== fetchSimplePrice CALLED ===`);
+  console.log('Symbol:', symbol);
+  
   const cacheKey = `price_${symbol}`;
   const cached = cache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    console.log('✅ Cache HIT for:', cacheKey);
     return cached.data;
   }
+  console.log('Cache MISS, fetching from API...');
 
   try {
     console.log(`\n💰 Fetching price for ${symbol} from Nasdaq...`);
@@ -188,7 +193,10 @@ Find and return JSON:
 
 Return ONLY the JSON object.`;
 
+    console.log('Calling TinyFish with URL:', url);
     const result = await callTinyFish(url, goal, 90000);
+    console.log('TinyFish result:', JSON.stringify(result, null, 2));
+    
     const priceData = result.output?.data || result.data || result.output || {};
     
     console.log('✅ Got price:', priceData);
