@@ -4,22 +4,25 @@
 const cache = new Map();
 const CACHE_TTL = 5 * 60 * 1000; // 5 分钟缓存
 
-async function callTinyFish(url, goal, timeout = 90000) {
+async function callTinyFish(url, goal, timeout = 180000) {
   const apiKey = process.env.TINYFISH_API_KEY || "sk-tinyfish-jrNPRJUhx20YD6Ozc5sRefmtsdC1MPMu";
   
   console.log('=== TinyFish API Call Start ===');
   console.log('URL:', url);
-  console.log('Goal:', goal);
+  console.log('Goal:', goal.substring(0, 100) + '...');
 
   if (!apiKey) {
     throw new Error("TINYFISH_API_KEY not configured");
   }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  const timeoutId = setTimeout(() => {
+    console.log('⏰ Timeout reached, aborting request...');
+    controller.abort();
+  }, timeout);
 
   try {
-    console.log('Calling TinyFish API...');
+    console.log('Calling TinyFish API with timeout:', timeout, 'ms');
     
     const response = await fetch('https://agent.tinyfish.ai/v1/automation/run', {
       method: "POST",
@@ -40,10 +43,9 @@ async function callTinyFish(url, goal, timeout = 90000) {
     // 先获取文本，检查是否为 JSON
     const text = await response.text();
     console.log('Response text length:', text.length);
-    console.log('Response preview:', text.substring(0, 200));
 
     if (!response.ok) {
-      console.error('TinyFish API error:', response.status, text);
+      console.error('TinyFish API error:', response.status, text.substring(0, 500));
       throw new Error(`TinyFish API error ${response.status}`);
     }
 
@@ -55,7 +57,8 @@ async function callTinyFish(url, goal, timeout = 90000) {
 
     try {
       const result = JSON.parse(text);
-      console.log('TinyFish API success, result keys:', Object.keys(result));
+      console.log('✅ TinyFish API success');
+      console.log('Result keys:', Object.keys(result));
       console.log('=== TinyFish API Call End ===\n');
       return result;
     } catch (parseError) {
@@ -65,9 +68,10 @@ async function callTinyFish(url, goal, timeout = 90000) {
     }
   } catch (error) {
     clearTimeout(timeoutId);
-    console.error('TinyFish call error:', error.message);
+    console.error('❌ TinyFish call error:', error.message);
     if (error.name === 'AbortError') {
-      throw new Error('TinyFish API request timeout');
+      console.error('⏰ Request timed out after', timeout, 'ms');
+      throw new Error(`TinyFish API timeout after ${timeout}ms. Try again or use a simpler URL.`);
     }
     throw error;
   }
@@ -82,74 +86,43 @@ async function fetchStockPosition(symbol) {
     return cached.data;
   }
 
-  // 使用 Yahoo Finance - 更可靠的股票数据源
+  // 简化 URL 和 goal，加快抓取速度
   const searchUrl = `https://finance.yahoo.com/quote/${symbol}`;
-  const goal = `Extract ALL stock data from this Yahoo Finance page for ${symbol}. 
-
-Find and return as JSON:
-1. Current stock price (number)
-2. Company name
-3. Price change and percent
-4. Market cap
-5. P/E ratio
-6. EPS
-7. Volume
-8. Open, High, Low, Previous Close
-9. 52 week range
-10. Dividend yield
-
-IMPORTANT: Return ONLY valid JSON like this:
-{"symbol":"${symbol}","company_name":"Company Name","current_price":123.45,"price_change":1.23,"price_change_percent":1.0,"market_cap":"100B","pe_ratio":25.5,"eps":5.2,"volume":1000000,"open":122.0,"high":124.0,"low":121.0,"previous_close":122.22,"fifty_two_week_high":150.0,"fifty_two_week_low":100.0,"dividend_yield":"1.5%"}
-
-If you cannot find the page, return: {"error":"Page not found"}`;
+  const goal = `Get stock price for ${symbol}. Return JSON: {"symbol":"${symbol}","company_name":"Name","current_price":000.00,"market_cap":"000B","pe_ratio":00.0}`;
   
   try {
-    console.log(`\n=== Fetching ${symbol} from Yahoo Finance ===`);
-    const result = await callTinyFish(searchUrl, goal, 120000);
+    console.log(`\n=== Fetching ${symbol} ===`);
+    const result = await callTinyFish(searchUrl, goal, 180000);
     
-    console.log('\n🔍 TinyFish Raw Response:');
-    console.log(JSON.stringify(result, null, 2));
+    console.log('\n🔍 Raw Response:', JSON.stringify(result, null, 2));
     
-    // 尝试从各种可能的字段中提取数据
-    let data = null;
+    // 提取数据
+    let data = result.output?.data || result.data || result.output || result || {};
     
-    if (result.output?.data) {
-      data = result.output.data;
-    } else if (result.data) {
-      data = result.data;
-    } else if (typeof result.output === 'string') {
+    // 如果是字符串，尝试解析
+    if (typeof data === 'string') {
       try {
-        data = JSON.parse(result.output);
-      } catch (e) {
-        console.log('Output is text, trying to extract...');
-        // 尝试从文本中提取 JSON
-        const jsonMatch = result.output.match(/\{[\s\S]*\}/);
+        const jsonMatch = data.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
-          try {
-            data = JSON.parse(jsonMatch[0]);
-          } catch (e2) {
-            console.warn('Could not parse extracted JSON');
-          }
+          data = JSON.parse(jsonMatch[0]);
         }
+      } catch (e) {
+        console.log('Could not parse string as JSON');
       }
-    } else if (result.output && typeof result.output === 'object') {
-      data = result.output;
-    } else {
-      data = result;
     }
     
-    console.log('\n📊 Extracted Data:', data);
+    console.log('\n📊 Extracted:', data);
     
-    // 验证数据有效性
+    // 验证
     if (!data || data.error || (!data.current_price && !data.company_name)) {
-      console.warn('⚠️ No valid data, using enhanced fallback');
+      console.warn('⚠️ Using fallback');
       data = generateFallbackData(symbol);
     }
     
     cache.set(cacheKey, { data, timestamp: Date.now() });
     return data;
   } catch (error) {
-    console.error(`❌ Stock position fetch error:`, error.message);
+    console.error(`❌ Error:`, error.message);
     return generateFallbackData(symbol, error.message);
   }
 }
