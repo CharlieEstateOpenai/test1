@@ -15,7 +15,7 @@ const DATA_SOURCES = {
 
 async function callTinyFish(url, instructions, timeout = 60000) {
   const apiKey = process.env.TINYFISH_API_KEY || "sk-tinyfish-jrNPRJUhx20YD6Ozc5sRefmtsdC1MPMu";
-  const apiUrl = process.env.TINYFISH_API_URL || "https://api.tinyfish.ai/v1";
+  const apiUrl = process.env.TINYFISH_API_URL || "https://agent.tinyfish.ai/v1";
 
   if (!apiKey) {
     throw new Error("TINYFISH_API_KEY not configured");
