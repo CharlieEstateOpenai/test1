@@ -246,36 +246,6 @@ async function fetchEarningsData(symbol) {
   }
 }
 
-// 搜索股票（使用 Google）
-async function searchStocks(query) {
-  try {
-    console.log(`\n🔍 Searching for: ${query}`);
-    
-    const url = `https://www.google.com/search?q=${query}+stock+ticker`;
-    const goal = `Find stock ticker symbols related to "${query}".
-
-Return JSON array:
-[
-  {
-    "symbol": "ticker symbol",
-    "company_name": "company name",
-    "exchange": "NASDAQ/NYSE/etc"
-  }
-]
-
-Return up to 10 results.`;
-
-    const result = await callTinyFish(url, goal, 90000);
-    const results = result.result || result.output?.data || result.data || result.output || [];
-    
-    console.log('Search results:', Array.isArray(results) ? results.length : 0);
-    return Array.isArray(results) ? results : [];
-  } catch (error) {
-    console.error('Search error:', error.message);
-    return [];
-  }
-}
-
 // 获取关键指标摘要
 async function fetchKeyMetrics(symbol) {
   const cacheKey = `metrics_${symbol}`;

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Stock Real-time Position and Trend Analysis Web App",
   "main": "api/index.js",
+  "type": "commonjs",
   "scripts": {
     "dev": "vercel dev",
     "start": "node server.js",
