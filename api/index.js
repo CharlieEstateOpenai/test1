@@ -146,7 +146,14 @@ async function searchStocks(query) {
 
 export default async function handler(req, res) {
   const { method, url } = req;
-  const path = url || '/';
+  
+  // 解析 URL，去掉查询字符串
+  const urlObj = new URL(`http://localhost${url || '/'}`);
+  const pathname = urlObj.pathname;
+  
+  console.log('Request URL:', url);
+  console.log('Parsed pathname:', pathname);
+  console.log('Method:', method);
 
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -159,7 +166,7 @@ export default async function handler(req, res) {
   }
 
   // Health check
-  if (path === '/api/health') {
+  if (pathname === '/api/health') {
     res.status(200).json({
       status: 'healthy',
       version: '2.0.0',
@@ -170,8 +177,7 @@ export default async function handler(req, res) {
   }
 
   // 搜索股票 - GET /api/search?q=:query
-  if (path === '/api/search' && method === 'GET') {
-    const urlObj = new URL(`http://localhost${path}`);
+  if (pathname === '/api/search' && method === 'GET') {
     const query = urlObj.searchParams.get('q');
     
     if (!query) {
@@ -204,8 +210,8 @@ export default async function handler(req, res) {
   }
 
   // 获取股票实时持仓数据 - GET /api/stock/:symbol/position
-  if (path.match(/^\/api\/stock\/[A-Za-z0-9]+\/position$/)) {
-    const symbol = path.split('/')[3];
+  if (pathname.match(/^\/api\/stock\/[A-Za-z0-9]+\/position$/)) {
+    const symbol = pathname.split('/')[3];
     
     console.log('\n=== Stock Position API Called ===');
     console.log('Symbol:', symbol);
@@ -231,8 +237,8 @@ export default async function handler(req, res) {
   }
 
   // 获取股票历史数据 - GET /api/stock/:symbol/history/:metric
-  if (path.match(/^\/api\/stock\/[A-Za-z0-9]+\/history\/[A-Za-z_]+$/)) {
-    const parts = path.split('/');
+  if (pathname.match(/^\/api\/stock\/[A-Za-z0-9]+\/history\/[A-Za-z_]+$/)) {
+    const parts = pathname.split('/');
     const symbol = parts[3];
     const metric = parts[5] || 'price';
 
@@ -257,8 +263,8 @@ export default async function handler(req, res) {
   }
 
   // 获取股票新闻 - GET /api/stock/:symbol/news
-  if (path.match(/^\/api\/stock\/[A-Za-z0-9]+\/news$/)) {
-    const symbol = path.split('/')[3];
+  if (pathname.match(/^\/api\/stock\/[A-Za-z0-9]+\/news$/)) {
+    const symbol = pathname.split('/')[3];
 
     try {
       const news = await fetchStockNews(symbol.toUpperCase());
@@ -276,7 +282,7 @@ export default async function handler(req, res) {
   }
 
   // 默认响应
-  if (path === '/' || path === '/api') {
+  if (pathname === '/' || pathname === '/api') {
     res.status(200).json({
       name: 'Stock Real-time Position & Trend Analysis API',
       version: '2.0.0',
@@ -292,5 +298,5 @@ export default async function handler(req, res) {
     return;
   }
 
-  res.status(404).json({ error: 'Not found', path });
+  res.status(404).json({ error: 'Not found', path: pathname });
 }
