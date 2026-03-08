@@ -45,12 +45,21 @@ async function callTinyFish(url, instructions, timeout = 60000) {
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`TinyFish API error ${response.status}:`, errorText);
-      throw new Error(`TinyFish API error: ${response.status} - ${errorText}`);
+      throw new Error(`TinyFish API error ${response.status}`);
     }
 
-    const result = await response.json();
-    console.log(`TinyFish API success`);
-    return result;
+    const text = await response.text();
+    console.log(`TinyFish API response length:`, text.length);
+    
+    try {
+      const result = JSON.parse(text);
+      console.log(`TinyFish API success`);
+      return result;
+    } catch (parseError) {
+      console.error(`JSON parse error:`, parseError.message);
+      console.error(`Response text:`, text.substring(0, 200));
+      throw new Error('Invalid JSON response from TinyFish API');
+    }
   } catch (error) {
     clearTimeout(timeoutId);
     console.error(`TinyFish call error:`, error.message);
@@ -290,16 +299,18 @@ export default async function handler(req, res) {
 
   // 搜索股票 - GET /api/search?q=:query
   if (path === '/api/search' && method === 'GET') {
-    const query = new URL(`http://localhost${path}`).searchParams.get('q');
+    const urlObj = new URL(`http://localhost${path}`);
+    const query = urlObj.searchParams.get('q');
     
     if (!query) {
       res.status(400).json({ error: '搜索关键词不能为空' });
       return;
     }
 
-    const searchUrl = `https://www.google.com/search?q=${query}+stock+ticker+symbol+company`;
-    
-    const instructions = `Find stock ticker symbols and company information for "${query}".
+    try {
+      const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}+stock+ticker+symbol+company`;
+      
+      const instructions = `Find stock ticker symbols and company information for "${query}".
 
 Return as JSON array with:
 - symbol: stock ticker symbol
@@ -310,17 +321,22 @@ Return as JSON array with:
 
 Return up to 10 results. Return only the JSON array.`;
 
-    try {
       const result = await callTinyFish(searchUrl, instructions, 45000);
       const results = result.data || result || [];
       
       res.status(200).json({
         query,
-        results,
+        results: Array.isArray(results) ? results : [],
         timestamp: new Date().toISOString()
       });
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      console.error('Search error:', error.message);
+      res.status(200).json({
+        query,
+        results: [],
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
     }
     return;
   }
