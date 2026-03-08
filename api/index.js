@@ -161,7 +161,7 @@ Return JSON:
   }
 }
 
-// 获取简单价格信息（快速）
+// 获取简单价格信息（使用 Nasdaq API）
 async function fetchSimplePrice(symbol) {
   const cacheKey = `price_${symbol}`;
   const cached = cache.get(cacheKey);
@@ -170,12 +170,25 @@ async function fetchSimplePrice(symbol) {
   }
 
   try {
-    console.log(`\n💰 Fetching price for ${symbol}...`);
+    console.log(`\n💰 Fetching price for ${symbol} from Nasdaq...`);
     
-    const url = `https://www.google.com/search?q=${symbol}+stock+price`;
-    const goal = `Find the current stock price for ${symbol}. Return ONLY JSON: {"symbol":"${symbol}","price":000.00,"change":00.00,"change_percent":0.00}`;
+    // 使用 Nasdaq 官方 API
+    const url = `https://api.nasdaq.com/api/quote/${symbol}`;
+    const goal = `Extract stock quote data from this Nasdaq API response for ${symbol}.
 
-    const result = await callTinyFish(url, goal, 60000);
+Find and return JSON:
+{
+  "symbol": "${symbol}",
+  "price": number (current price),
+  "change": number (price change),
+  "change_percent": number (percentage change),
+  "volume": number,
+  "market_cap": number
+}
+
+Return ONLY the JSON object.`;
+
+    const result = await callTinyFish(url, goal, 90000);
     const priceData = result.output?.data || result.data || result.output || {};
     
     console.log('✅ Got price:', priceData);
@@ -183,11 +196,27 @@ async function fetchSimplePrice(symbol) {
     return priceData;
   } catch (error) {
     console.error('Price fetch error:', error.message);
-    return {
-      symbol: symbol,
-      price: null,
-      error: error.message
-    };
+    
+    // 备用方案：使用 Yahoo Finance
+    try {
+      console.log('Trying Yahoo Finance as fallback...');
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=1d&interval=1m`;
+      const goal = `Extract current price from Yahoo Finance chart data for ${symbol}. Return JSON: {"symbol":"${symbol}","price":000.00,"change":00.00,"change_percent":0.00}`;
+      
+      const result = await callTinyFish(url, goal, 60000);
+      const priceData = result.output?.data || result.data || result.output || {};
+      
+      console.log('✅ Got price from Yahoo:', priceData);
+      cache.set(cacheKey, { data: priceData, timestamp: Date.now() });
+      return priceData;
+    } catch (error2) {
+      console.error('Both sources failed:', error2.message);
+      return {
+        symbol: symbol,
+        price: null,
+        error: error.message
+      };
+    }
   }
 }
 
@@ -295,35 +324,53 @@ async function fetchKeyMetrics(symbol) {
   }
 
   try {
-    console.log(`\n📈 Fetching key metrics for ${symbol}...`);
+    console.log(`\n📈 Fetching key metrics for ${symbol} from Nasdaq...`);
     
-    const url = `https://finance.yahoo.com/quote/${symbol}/key-statistics`;
-    const goal = `Extract key statistics for ${symbol}:
+    // 使用 Nasdaq 公司资料 API
+    const url = `https://api.nasdaq.com/api/company-profile/${symbol}`;
+    const goal = `Extract company profile and key metrics from Nasdaq API for ${symbol}.
 
 Return JSON:
 {
-  "market_cap": "market cap value",
+  "market_cap": number or string,
   "pe_ratio": number,
-  "forward_pe": number,
   "eps": number,
-  "dividend_yield": "percentage",
+  "dividend_yield": string or number,
   "beta": number,
   "52_week_high": number,
   "52_week_low": number,
-  "avg_volume": number
+  "avg_volume": number,
+  "sector": string,
+  "industry": string
 }`;
 
     const result = await callTinyFish(url, goal, 90000);
     const metrics = result.output?.data || result.data || result.output || {};
     
-    console.log('✅ Got key metrics');
+    console.log('✅ Got key metrics from Nasdaq');
     cache.set(cacheKey, { data: metrics, timestamp: Date.now() });
     return metrics;
   } catch (error) {
     console.error('Metrics fetch error:', error.message);
-    return {
-      error: error.message
-    };
+    
+    // 备用方案：使用 Yahoo Finance
+    try {
+      console.log('Trying Yahoo Finance as fallback...');
+      const url = `https://finance.yahoo.com/quote/${symbol}/key-statistics`;
+      const goal = `Extract key statistics for ${symbol}. Return JSON with: market_cap, pe_ratio, eps, dividend_yield, beta, 52_week_high, 52_week_low, avg_volume`;
+      
+      const result = await callTinyFish(url, goal, 90000);
+      const metrics = result.output?.data || result.data || result.output || {};
+      
+      console.log('✅ Got metrics from Yahoo');
+      cache.set(cacheKey, { data: metrics, timestamp: Date.now() });
+      return metrics;
+    } catch (error2) {
+      console.error('Both sources failed:', error2.message);
+      return {
+        error: error.message
+      };
+    }
   }
 }
 
