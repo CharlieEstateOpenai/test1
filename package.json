@@ -1,0 +1,15 @@
+{
+  "name": "test0308-stock-app",
+  "version": "1.0.0",
+  "description": "Stock Real-time Position and Trend Analysis Web App",
+  "main": "api/index.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "engines": {
+    "node": "20.x"
+  }
+}
