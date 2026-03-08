@@ -39,42 +39,10 @@ async function handleSearch() {
     try {
         console.log('Starting search for:', query);
         
-        // 先搜索股票
-        const searchResponse = await fetch(`${API_BASE}/api/search?q=${encodeURIComponent(query)}`);
-        console.log('Search response status:', searchResponse.status);
+        // 直接尝试作为股票代码查询
+        console.log('Trying direct stock lookup for:', query.toUpperCase());
+        await loadStockDetail(query.toUpperCase());
         
-        const text = await searchResponse.text();
-        console.log('Search response text length:', text.length);
-        console.log('Search response preview:', text.substring(0, 200));
-        
-        // 检查是否是 HTML
-        if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html') || text.trim().startsWith('<!doctype')) {
-            throw new Error('服务器返回了 HTML 而不是 JSON，可能是 API 错误');
-        }
-        
-        let searchData;
-        try {
-            searchData = JSON.parse(text);
-        } catch (parseError) {
-            console.error('JSON parse error:', parseError.message);
-            throw new Error('API 返回了无效的数据格式');
-        }
-        
-        console.log('Parsed search data:', searchData);
-        
-        if (!searchResponse.ok || searchData.error) {
-            throw new Error(searchData.error || '搜索失败');
-        }
-
-        if (searchData.results && searchData.results.length > 0) {
-            // 显示搜索结果
-            displaySearchResults(searchData.results);
-            hideLoading();
-        } else {
-            // 如果没有搜索结果，尝试直接作为股票代码查询
-            console.log('No search results, trying direct stock lookup');
-            await loadStockDetail(query.toUpperCase());
-        }
     } catch (error) {
         console.error('Search error:', error);
         showError(error.message || '搜索失败，请稍后重试');
@@ -113,16 +81,24 @@ async function loadStockDetail(symbol) {
     showLoading();
     
     try {
-        // 并行加载所有数据
-        const [positionData, metricsData, newsData] = await Promise.all([
-            fetchStockPosition(currentSymbol),
-            fetchStockMetrics(currentSymbol),
-            fetchStockNews(currentSymbol)
+        console.log('Loading stock detail for:', symbol);
+        
+        // 先获取持仓数据
+        const positionData = await fetchStockPosition(symbol);
+        console.log('Position data received:', positionData);
+        
+        if (!positionData || (!positionData.current_price && !positionData.company_name)) {
+            console.error('No valid stock data returned');
+            throw new Error(`未找到股票 ${symbol} 的数据，请检查股票代码是否正确`);
+        }
+        
+        // 并行加载其他数据
+        const [metricsData, newsData] = await Promise.all([
+            fetchStockMetrics(symbol),
+            fetchStockNews(symbol)
         ]);
         
-        if (!positionData || !Object.keys(positionData).length) {
-            throw new Error('未找到该股票数据');
-        }
+        console.log('All data loaded:', { positionData, metricsData, newsData });
         
         displayStockDetail(positionData);
         displayMetrics(metricsData);

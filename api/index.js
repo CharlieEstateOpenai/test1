@@ -82,13 +82,43 @@ async function fetchStockPosition(symbol) {
     return cached.data;
   }
 
-  const searchUrl = `https://finance.yahoo.com/quote/${symbol}`;
-  const goal = `Extract stock data for ${symbol}. Return JSON with: symbol, company_name, current_price, price_change, price_change_percent, market_cap, pe_ratio, eps, dividend_yield, volume, avg_volume, open, high, low, previous_close, fifty_two_week_high, fifty_two_week_low, beta, sector, industry. Return null for missing fields.`;
+  // 使用多个数据源
+  const searchUrl = `https://www.google.com/search?q=${symbol}+stock+price+market+cap`;
+  const goal = `Extract complete stock data for ${symbol} (AAPL, GOOGL, etc.).
+
+Return JSON with these exact fields:
+- symbol: "${symbol}"
+- company_name: Full company name
+- current_price: Current stock price (number)
+- price_change: Price change amount (number)
+- price_change_percent: Price change percentage (number)
+- market_cap: Market cap (e.g., "2.5T" or "150B")
+- pe_ratio: P/E ratio (number)
+- eps: Earnings per share (number)
+- dividend_yield: Dividend yield (e.g., "0.5%")
+- volume: Trading volume (number)
+- open: Opening price (number)
+- high: Today's high (number)
+- low: Today's low (number)
+- previous_close: Previous close price (number)
+
+Return null for any missing fields. Return ONLY the JSON object.`;
   
   try {
-    const result = await callTinyFish(searchUrl, goal, 60000);
-    const data = result.output?.data || result.data || result.output || {};
+    console.log(`Fetching stock data for ${symbol}...`);
+    const result = await callTinyFish(searchUrl, goal, 90000);
+    
+    // 尝试多种可能的返回格式
+    const data = result.output?.data || result.data || result.output || result || {};
+    
     console.log('Stock position data:', data);
+    
+    // 验证是否获取到有效数据
+    if (!data.current_price && !data.company_name) {
+      console.warn('No valid stock data returned');
+      return null;
+    }
+    
     cache.set(cacheKey, { data, timestamp: Date.now() });
     return data;
   } catch (error) {
