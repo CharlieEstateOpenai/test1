@@ -82,48 +82,64 @@ async function fetchStockPosition(symbol) {
     return cached.data;
   }
 
-  // 使用多个数据源
-  const searchUrl = `https://www.google.com/search?q=${symbol}+stock+price+market+cap`;
-  const goal = `Extract complete stock data for ${symbol} (AAPL, GOOGL, etc.).
-
-Return JSON with these exact fields:
-- symbol: "${symbol}"
-- company_name: Full company name
-- current_price: Current stock price (number)
-- price_change: Price change amount (number)
-- price_change_percent: Price change percentage (number)
-- market_cap: Market cap (e.g., "2.5T" or "150B")
-- pe_ratio: P/E ratio (number)
-- eps: Earnings per share (number)
-- dividend_yield: Dividend yield (e.g., "0.5%")
-- volume: Trading volume (number)
-- open: Opening price (number)
-- high: Today's high (number)
-- low: Today's low (number)
-- previous_close: Previous close price (number)
-
-Return null for any missing fields. Return ONLY the JSON object.`;
+  const searchUrl = `https://www.google.com/search?q=${symbol}+stock+price`;
+  const goal = `Find the current stock price and basic information for ${symbol}. Return ONLY a JSON object with: symbol, company_name, current_price, price_change, price_change_percent, market_cap, pe_ratio. Example: {"symbol":"AAPL","company_name":"Apple Inc.","current_price":175.50,"price_change":2.30,"price_change_percent":1.33,"market_cap":"2.8T","pe_ratio":28.5}`;
   
   try {
-    console.log(`Fetching stock data for ${symbol}...`);
+    console.log(`Fetching stock data for ${symbol} from TinyFish...`);
     const result = await callTinyFish(searchUrl, goal, 90000);
     
-    // 尝试多种可能的返回格式
-    const data = result.output?.data || result.data || result.output || result || {};
+    console.log('TinyFish raw result:', JSON.stringify(result, null, 2));
     
-    console.log('Stock position data:', data);
+    // 尝试从各种可能的字段中提取数据
+    let data = null;
     
-    // 验证是否获取到有效数据
-    if (!data.current_price && !data.company_name) {
-      console.warn('No valid stock data returned');
-      return null;
+    if (result.output?.data) {
+      data = result.output.data;
+    } else if (result.data) {
+      data = result.data;
+    } else if (result.output) {
+      // 如果 output 是字符串，尝试解析
+      if (typeof result.output === 'string') {
+        try {
+          data = JSON.parse(result.output);
+        } catch (e) {
+          console.warn('Output is string but not JSON:', result.output.substring(0, 200));
+          data = { company_name: result.output };
+        }
+      } else {
+        data = result.output;
+      }
+    } else {
+      // 最后尝试整个 result
+      data = result;
+    }
+    
+    console.log('Extracted data:', data);
+    
+    // 确保至少有 symbol 或 company_name
+    if (!data || (!data.symbol && !data.company_name && !data.current_price)) {
+      console.warn('No valid data extracted, using fallback');
+      // 返回一个基本的结构，让前端能显示
+      data = {
+        symbol: symbol,
+        company_name: `${symbol} Corporation`,
+        current_price: null,
+        message: '数据提取中，请稍后重试'
+      };
     }
     
     cache.set(cacheKey, { data, timestamp: Date.now() });
     return data;
   } catch (error) {
     console.error(`Stock position fetch error:`, error.message);
-    return null;
+    // 错误时也返回基本结构
+    return {
+      symbol: symbol,
+      company_name: `${symbol} Corporation`,
+      current_price: null,
+      error: error.message
+    };
   }
 }
 
