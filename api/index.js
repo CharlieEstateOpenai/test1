@@ -301,12 +301,12 @@ async function fetchCompanyProfile(symbol) {
   }
 }
 
-// 获取分析师评级 - 使用 TinyFish + Google Finance
+// 获取分析师评级 - 使用多个 URL 来源
 async function fetchAnalystRatings(symbol) {
   const cacheKey = `ratings_${symbol}`;
   const cached = cache.get(cacheKey);
-  // 永久缓存（直到服务器重启），分析师评级变化很慢
-  if (cached) {
+  // 2 小时缓存
+  if (cached && Date.now() - cached.timestamp < 2 * 60 * 60 * 1000) {
     console.log('✅ Cache HIT for ratings:', cacheKey);
     return cached.data;
   }
@@ -314,17 +314,58 @@ async function fetchAnalystRatings(symbol) {
   try {
     console.log(`\n📊 Fetching analyst ratings for ${symbol} via TinyFish...`);
     
-    // 使用 Google Finance - 页面简单
-    const url = `https://www.google.com/finance/quote/${symbol}:NASDAQ`;
-    const goal = `Find analyst recommendation for ${symbol}. Return ONLY: {"consensus":"Buy" or "Hold" or "Sell"}`;
-
-    // 60 秒超时
-    const result = await callTinyFish(url, goal, 60000);
-    const ratings = result.result || result.output?.data || result.data || result.output || {};
+    // 使用更简单、更快的网站
+    const sources = [
+      {
+        name: 'TradingView',
+        url: `https://www.tradingview.com/symbols/${symbol}/`,
+        goal: `Find analyst rating or recommendation for ${symbol}. Return ONLY: {"consensus":"Buy" or "Hold" or "Sell"}`
+      },
+      {
+        name: 'StockAnalysis',
+        url: `https://stockanalysis.com/stocks/${symbol.toLowerCase()}/`,
+        goal: `Extract analyst rating for ${symbol}. Return ONLY: {"consensus":"Buy" or "Hold" or "Sell"}`
+      },
+      {
+        name: 'Yahoo Summary',
+        url: `https://finance.yahoo.com/quote/${symbol}`,
+        goal: `Find any analyst recommendation text. Return ONLY: {"consensus":"Buy" or "Hold" or "Sell"}`
+      }
+    ];
     
-    console.log('✅ Got analyst ratings from Google Finance');
-    cache.set(cacheKey, { data: ratings, timestamp: Date.now() });
-    return ratings;
+    // 串行获取，快速失败
+    let bestResult = null;
+    
+    for (const {name, url, goal} of sources) {
+      try {
+        console.log(`  → Trying ${name}...`);
+        const result = await callTinyFish(url, goal, 20000);
+        const data = result.result || result.output?.data || result.data || result.output || {};
+        
+        if (data && data.consensus) {
+          console.log(`  ✅ ${name} returned:`, data);
+          bestResult = data;
+          break; // 成功就停止
+        } else {
+          console.log(`  ⚠️ ${name} returned no consensus`);
+        }
+      } catch (error) {
+        console.log(`  ❌ ${name} failed:`, error.message);
+      }
+    }
+    
+    // 如果所有来源都失败，使用默认值
+    if (!bestResult) {
+      bestResult = {
+        consensus: 'Hold',
+        analyst_count: 0,
+        note: 'Data temporarily unavailable'
+      };
+    }
+    
+    console.log('✅ Final analyst ratings:', bestResult);
+    cache.set(cacheKey, { data: bestResult, timestamp: Date.now() });
+    return bestResult;
   } catch (error) {
     console.error('Ratings fetch error:', error.message);
     // Fallback: 返回简化的评级信息
