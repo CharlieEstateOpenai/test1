@@ -3,20 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>股票实时持仓与趋势分析</title>
+    <title>股票新闻与情绪分析</title>
     <link rel="stylesheet" href="/css/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <nav class="navbar">
         <div class="container">
             <div class="nav-brand">
                 <span class="logo">📈</span>
-                <h1>股票实时持仓分析</h1>
+                <h1>股票新闻与情绪分析</h1>
             </div>
             <div class="nav-links">
                 <a href="#" class="nav-link active">首页</a>
-                <a href="#" class="nav-link">我的自选</a>
+                <a href="#" class="nav-link">热门股票</a>
                 <a href="#" class="nav-link">关于</a>
             </div>
         </div>
@@ -41,9 +40,9 @@
 
         <!-- 股票详情区域 -->
         <div id="stockDetail" class="stock-detail" style="display: none;">
-            <!-- 持仓数据卡片 -->
-            <div class="position-card">
-                <div class="position-header">
+            <!-- 价格卡片 -->
+            <div class="price-card">
+                <div class="price-header">
                     <div class="stock-info">
                         <h2 id="stockSymbol">AAPL</h2>
                         <span id="stockName" class="stock-name">Apple Inc.</span>
@@ -53,87 +52,36 @@
                         <div id="priceChange" class="price-change">+$0.00 (+0.00%)</div>
                     </div>
                 </div>
+            </div>
 
-                <div class="position-grid">
-                    <div class="position-item">
-                        <span class="label">市值</span>
-                        <span id="marketCap" class="value">-</span>
-                    </div>
-                    <div class="position-item">
-                        <span class="label">市盈率 (PE)</span>
-                        <span id="peRatio" class="value">-</span>
-                    </div>
-                    <div class="position-item">
-                        <span class="label">每股收益 (EPS)</span>
-                        <span id="eps" class="value">-</span>
-                    </div>
-                    <div class="position-item">
-                        <span class="label">股息率</span>
-                        <span id="dividendYield" class="value">-</span>
-                    </div>
-                    <div class="position-item">
-                        <span class="label">成交量</span>
-                        <span id="volume" class="value">-</span>
-                    </div>
-                    <div class="position-item">
-                        <span class="label">平均成交量</span>
-                        <span id="avgVolume" class="value">-</span>
-                    </div>
-                    <div class="position-item">
-                        <span class="label">今开</span>
-                        <span id="open" class="value">-</span>
-                    </div>
-                    <div class="position-item">
-                        <span class="label">昨收</span>
-                        <span id="previousClose" class="value">-</span>
-                    </div>
-                    <div class="position-item">
-                        <span class="label">日内高点</span>
-                        <span id="high" class="value">-</span>
-                    </div>
-                    <div class="position-item">
-                        <span class="label">日内低点</span>
-                        <span id="low" class="value">-</span>
-                    </div>
-                    <div class="position-item">
-                        <span class="label">52 周高点</span>
-                        <span id="fiftyTwoWeekHigh" class="value">-</span>
-                    </div>
-                    <div class="position-item">
-                        <span class="label">52 周低点</span>
-                        <span id="fiftyTwoWeekLow" class="value">-</span>
-                    </div>
-                    <div class="position-item">
-                        <span class="label">Beta</span>
-                        <span id="beta" class="value">-</span>
-                    </div>
-                    <div class="position-item">
-                        <span class="label">行业</span>
-                        <span id="industry" class="value">-</span>
-                    </div>
-                    <div class="position-item">
-                        <span class="label">板块</span>
-                        <span id="sector" class="value">-</span>
-                    </div>
+            <!-- 分析师评级 -->
+            <div class="info-card">
+                <h3>📊 分析师评级</h3>
+                <div id="analystRatings" class="ratings-content">
+                    <div class="loading">加载中...</div>
                 </div>
             </div>
 
-            <!-- 趋势图表区域 -->
-            <div class="charts-section">
-                <div class="chart-tabs">
-                    <button class="chart-tab active" data-metric="price">价格趋势</button>
-                    <button class="chart-tab" data-metric="pe_ratio">市盈率趋势</button>
-                    <button class="chart-tab" data-metric="market_cap">市值趋势</button>
-                </div>
-                <div class="chart-container">
-                    <canvas id="trendChart"></canvas>
+            <!-- 社交媒体情绪 -->
+            <div class="info-card">
+                <h3>💬 社交媒体情绪</h3>
+                <div id="socialSentiment" class="sentiment-content">
+                    <div class="loading">加载中...</div>
                 </div>
             </div>
 
-            <!-- 新闻和评级 -->
-            <div class="news-section">
-                <h3>📰 相关新闻与分析师评级</h3>
-                <div id="newsContent" class="news-content">
+            <!-- 关键指标 -->
+            <div class="info-card">
+                <h3>📈 关键指标</h3>
+                <div id="keyMetrics" class="metrics-grid">
+                    <div class="loading">加载中...</div>
+                </div>
+            </div>
+
+            <!-- 新闻列表 -->
+            <div class="info-card">
+                <h3>📰 最新新闻</h3>
+                <div id="newsList" class="news-content">
                     <div class="loading">加载中...</div>
                 </div>
             </div>
@@ -151,13 +99,42 @@
         <!-- 加载动画 -->
         <div id="loadingSection" class="loading-section" style="display: none;">
             <div class="loading-spinner"></div>
-            <p class="loading-text">正在获取股票数据...</p>
+            <p class="loading-text">正在获取数据，请稍候（约 30-60 秒）...</p>
+            <p class="loading-hint">💡 提示：首次加载需要从多个网站抓取数据</p>
+        </div>
+
+        <!-- 功能说明 -->
+        <div class="features-section">
+            <h3>✨ 功能特色</h3>
+            <div class="features-grid">
+                <div class="feature-item">
+                    <span class="feature-icon">📰</span>
+                    <h4>实时新闻</h4>
+                    <p>从 Yahoo Finance 获取最新股票新闻</p>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">📊</span>
+                    <h4>分析师评级</h4>
+                    <p>汇总各大投行的评级和目标价</p>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">💬</span>
+                    <h4>情绪分析</h4>
+                    <p>Reddit 社交媒体情绪分析</p>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">📈</span>
+                    <h4>关键指标</h4>
+                    <p>市值、PE、EPS 等核心财务指标</p>
+                </div>
+            </div>
+            <p class="data-note">🔍 所有数据使用 TinyFish API 实时抓取，无模拟数据</p>
         </div>
     </div>
 
     <footer class="footer">
         <div class="container">
-            <p>数据来源：Nasdaq, Bloomberg, Reuters, MarketWatch | 使用 TinyFish API 驱动</p>
+            <p>数据来源：Yahoo Finance, Reddit, Google | 使用 TinyFish API 驱动</p>
             <p>数据延迟 15 分钟 | 仅供参考，不构成投资建议</p>
         </div>
     </footer>

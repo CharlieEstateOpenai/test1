@@ -1,7 +1,5 @@
 const API_BASE = window.location.origin;
 let currentSymbol = null;
-let trendChart = null;
-let currentMetric = 'price';
 
 document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('searchInput');
@@ -10,18 +8,6 @@ document.addEventListener('DOMContentLoaded', () => {
     searchBtn.addEventListener('click', handleSearch);
     searchInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') handleSearch();
-    });
-
-    // 图表标签切换
-    document.querySelectorAll('.chart-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-            document.querySelectorAll('.chart-tab').forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            currentMetric = tab.dataset.metric;
-            if (currentSymbol) {
-                loadHistoricalData(currentSymbol, currentMetric);
-            }
-        });
     });
 });
 
@@ -37,41 +23,12 @@ async function handleSearch() {
     showLoading();
     
     try {
-        console.log('Starting search for:', query);
-        
-        // 直接尝试作为股票代码查询
-        console.log('Trying direct stock lookup for:', query.toUpperCase());
+        console.log('Searching for:', query);
         await loadStockDetail(query.toUpperCase());
-        
     } catch (error) {
         console.error('Search error:', error);
         showError(error.message || '搜索失败，请稍后重试');
     }
-}
-
-function displaySearchResults(results) {
-    const resultsContainer = document.getElementById('searchResults');
-    resultsContainer.innerHTML = '';
-    
-    results.forEach(result => {
-        const item = document.createElement('div');
-        item.className = 'search-result-item';
-        item.innerHTML = `
-            <div style="display: flex; align-items: center; flex: 1;">
-                <span class="result-symbol">${result.symbol || 'N/A'}</span>
-                <span class="result-name">${result.company_name || result.name || 'Unknown'}</span>
-            </div>
-            <span class="result-exchange">${result.exchange || 'NASDAQ'}</span>
-        `;
-        
-        item.addEventListener('click', () => {
-            if (result.symbol) {
-                loadStockDetail(result.symbol);
-            }
-        });
-        
-        resultsContainer.appendChild(item);
-    });
 }
 
 async function loadStockDetail(symbol) {
@@ -81,345 +38,276 @@ async function loadStockDetail(symbol) {
     showLoading();
     
     try {
-        console.log('Loading stock detail for:', symbol);
+        console.log('Loading data for:', symbol);
         
-        // 先获取持仓数据
-        const positionData = await fetchStockPosition(symbol);
-        console.log('Position data received:', positionData);
-        
-        if (!positionData || (!positionData.current_price && !positionData.company_name)) {
-            console.error('No valid stock data returned');
-            throw new Error(`未找到股票 ${symbol} 的数据，请检查股票代码是否正确`);
-        }
-        
-        // 并行加载其他数据
-        const [metricsData, newsData] = await Promise.all([
-            fetchStockMetrics(symbol),
-            fetchStockNews(symbol)
+        // 并行加载所有数据
+        const [priceData, ratingsData, sentimentData, metricsData, newsData] = await Promise.all([
+            fetchPrice(currentSymbol),
+            fetchRatings(currentSymbol),
+            fetchSentiment(currentSymbol),
+            fetchMetrics(currentSymbol),
+            fetchNews(currentSymbol)
         ]);
         
-        console.log('All data loaded:', { positionData, metricsData, newsData });
+        console.log('All data loaded');
         
-        displayStockDetail(positionData);
+        displayPrice(priceData);
+        displayRatings(ratingsData);
+        displaySentiment(sentimentData);
         displayMetrics(metricsData);
         displayNews(newsData);
         
         document.getElementById('stockDetail').style.display = 'block';
         hideLoading();
     } catch (error) {
-        console.error('Load stock detail error:', error);
-        showError(error.message || '加载股票数据失败');
+        console.error('Load detail error:', error);
+        showError(error.message || '加载数据失败');
     }
 }
 
-async function fetchStockPosition(symbol) {
-    const response = await fetch(`${API_BASE}/api/stock/${symbol}/position`);
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || '获取持仓数据失败');
-    }
+async function fetchPrice(symbol) {
+    const response = await fetch(`${API_BASE}/api/stock/${symbol}/price`);
     const data = await response.json();
-    return data.data;
+    return data.data || {};
 }
 
-async function fetchStockMetrics(symbol) {
+async function fetchRatings(symbol) {
+    const response = await fetch(`${API_BASE}/api/stock/${symbol}/ratings`);
+    const data = await response.json();
+    return data.data || {};
+}
+
+async function fetchSentiment(symbol) {
+    const response = await fetch(`${API_BASE}/api/stock/${symbol}/sentiment`);
+    const data = await response.json();
+    return data.data || {};
+}
+
+async function fetchMetrics(symbol) {
     const response = await fetch(`${API_BASE}/api/stock/${symbol}/metrics`);
-    if (!response.ok) {
-        return { price: [], pe_ratio: [], market_cap: [] };
-    }
     const data = await response.json();
-    return data.data;
+    return data.data || {};
 }
 
-async function fetchStockNews(symbol) {
+async function fetchNews(symbol) {
     const response = await fetch(`${API_BASE}/api/stock/${symbol}/news`);
-    if (!response.ok) {
-        return { news: [], analyst_ratings: [], consensus: null };
-    }
     const data = await response.json();
-    return data.data;
+    return data.data || {};
 }
 
-function displayStockDetail(data) {
+function displayPrice(data) {
     document.getElementById('stockSymbol').textContent = data.symbol || currentSymbol;
-    document.getElementById('stockName').textContent = data.company_name || 'Unknown Company';
+    document.getElementById('stockName').textContent = 'Stock';
     
     const currentPrice = document.getElementById('currentPrice');
     const priceChange = document.getElementById('priceChange');
     
-    if (data.current_price) {
-        currentPrice.textContent = formatCurrency(data.current_price);
+    if (data.price) {
+        currentPrice.textContent = `$${data.price.toFixed(2)}`;
         
-        const change = data.price_change || 0;
-        const changePercent = data.price_change_percent || 0;
+        const change = data.change || 0;
+        const changePercent = data.change_percent || 0;
         const isPositive = change >= 0;
         
-        priceChange.textContent = `${isPositive ? '+' : ''}${formatCurrency(change)} (${isPositive ? '+' : ''}${changePercent}%)`;
+        priceChange.textContent = `${isPositive ? '+' : ''}$${change.toFixed(2)} (${isPositive ? '+' : ''}${changePercent}%)`;
         priceChange.className = `price-change ${isPositive ? '' : 'negative'}`;
         currentPrice.style.color = isPositive ? '#2ecc71' : '#e74c3c';
         priceChange.style.color = isPositive ? '#2ecc71' : '#e74c3c';
-    }
-    
-    // 更新持仓网格
-    updatePositionItem('marketCap', formatMarketCap(data.market_cap));
-    updatePositionItem('peRatio', data.pe_ratio ? data.pe_ratio.toFixed(2) : 'N/A');
-    updatePositionItem('eps', data.eps ? formatCurrency(data.eps) : 'N/A');
-    updatePositionItem('dividendYield', data.dividend_yield ? `${data.dividend_yield}%` : 'N/A');
-    updatePositionItem('volume', formatNumber(data.volume));
-    updatePositionItem('avgVolume', formatNumber(data.avg_volume));
-    updatePositionItem('open', data.open ? formatCurrency(data.open) : 'N/A');
-    updatePositionItem('previousClose', data.previous_close ? formatCurrency(data.previous_close) : 'N/A');
-    updatePositionItem('high', data.high ? formatCurrency(data.high) : 'N/A');
-    updatePositionItem('low', data.low ? formatCurrency(data.low) : 'N/A');
-    updatePositionItem('fiftyTwoWeekHigh', data.fifty_two_week_high ? formatCurrency(data.fifty_two_week_high) : 'N/A');
-    updatePositionItem('fiftyTwoWeekLow', data.fifty_two_week_low ? formatCurrency(data.fifty_two_week_low) : 'N/A');
-    updatePositionItem('beta', data.beta ? data.beta.toFixed(2) : 'N/A');
-    updatePositionItem('industry', data.industry || 'N/A');
-    updatePositionItem('sector', data.sector || 'N/A');
-}
-
-function updatePositionItem(id, value) {
-    const element = document.getElementById(id);
-    if (element) {
-        element.textContent = value;
+    } else {
+        currentPrice.textContent = 'N/A';
+        priceChange.textContent = '';
     }
 }
 
-function displayMetrics(metricsData) {
-    // 默认显示价格趋势
-    loadHistoricalData(currentSymbol, 'price');
-}
-
-async function loadHistoricalData(symbol, metric) {
-    try {
-        const response = await fetch(`${API_BASE}/api/stock/${symbol}/history/${metric}`);
-        if (!response.ok) {
-            throw new Error('获取历史数据失败');
-        }
-        
-        const result = await response.json();
-        const data = result.data || [];
-        
-        if (data.length === 0) {
-            showChartMessage('暂无历史数据');
-            return;
-        }
-        
-        renderChart(data, metric);
-    } catch (error) {
-        console.error('Load historical data error:', error);
-        showChartMessage('加载历史数据失败');
-    }
-}
-
-function renderChart(data, metric) {
-    const ctx = document.getElementById('trendChart').getContext('2d');
+function displayRatings(data) {
+    const container = document.getElementById('analystRatings');
     
-    if (trendChart) {
-        trendChart.destroy();
-    }
-    
-    const labels = data.map(item => {
-        const date = new Date(item.date);
-        return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
-    });
-    
-    const values = data.map(item => item.value);
-    
-    const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-    gradient.addColorStop(0, 'rgba(102, 126, 234, 0.3)');
-    gradient.addColorStop(1, 'rgba(102, 126, 234, 0.01)');
-    
-    trendChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: getMetricLabel(metric),
-                data: values,
-                borderColor: '#667eea',
-                backgroundColor: gradient,
-                borderWidth: 3,
-                fill: true,
-                tension: 0.4,
-                pointRadius: 4,
-                pointHoverRadius: 6,
-                pointBackgroundColor: '#667eea',
-                pointBorderColor: '#fff',
-                pointBorderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                intersect: false,
-                mode: 'index'
-            },
-            plugins: {
-                legend: {
-                    display: true,
-                    position: 'top'
-                },
-                tooltip: {
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    titleColor: '#fff',
-                    bodyColor: '#fff',
-                    padding: 12,
-                    cornerRadius: 8,
-                    displayColors: false,
-                    callbacks: {
-                        label: function(context) {
-                            const value = context.parsed.y;
-                            if (metric === 'market_cap') {
-                                return formatMarketCap(value);
-                            } else if (metric === 'price') {
-                                return formatCurrency(value);
-                            } else {
-                                return value.toFixed(2);
-                            }
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    grid: {
-                        display: false
-                    },
-                    ticks: {
-                        maxRotation: 45,
-                        minRotation: 45
-                    }
-                },
-                y: {
-                    grid: {
-                        color: 'rgba(0, 0, 0, 0.05)'
-                    },
-                    ticks: {
-                        callback: function(value) {
-                            if (metric === 'market_cap') {
-                                return formatMarketCap(value).replace('$', '');
-                            } else if (metric === 'price') {
-                                return '$' + value;
-                            }
-                            return value;
-                        }
-                    }
-                }
-            }
-        }
-    });
-}
-
-function getMetricLabel(metric) {
-    const labels = {
-        price: '价格',
-        pe_ratio: '市盈率',
-        market_cap: '市值',
-        revenue: '营收',
-        net_income: '净利润'
-    };
-    return labels[metric] || metric;
-}
-
-function showChartMessage(message) {
-    const container = document.querySelector('.chart-container');
-    container.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #666; font-size: 1.2rem;">${message}</div>`;
-}
-
-function displayNews(newsData) {
-    const newsContent = document.getElementById('newsContent');
-    
-    if ((!newsData.news || newsData.news.length === 0) && 
-        (!newsData.analyst_ratings || newsData.analyst_ratings.length === 0)) {
-        newsContent.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">暂无相关新闻和评级数据</p>';
+    if (data.error || (!data.consensus && !data.recent_ratings)) {
+        container.innerHTML = '<p class="no-data">暂无分析师评级数据</p>';
         return;
     }
     
     let html = '';
     
-    // 分析师评级
-    if (newsData.analyst_ratings && newsData.analyst_ratings.length > 0) {
-        html += '<h4 style="margin-bottom: 15px; color: #333;">📊 分析师评级</h4>';
-        newsData.analyst_ratings.slice(0, 5).forEach(rating => {
-            const ratingClass = getRatingClass(rating.rating);
+    if (data.consensus) {
+        const consensusClass = data.consensus.toLowerCase().includes('buy') ? 'rating-buy' : 
+                               data.consensus.toLowerCase().includes('sell') ? 'rating-sell' : 'rating-hold';
+        
+        html += `
+            <div class="rating-summary">
+                <div class="consensus-badge ${consensusClass}">${data.consensus}</div>
+                ${data.analyst_count ? `<span class="analyst-count">${data.analyst_count} 位分析师</span>` : ''}
+            </div>
+        `;
+    }
+    
+    if (data.price_target_average) {
+        html += `
+            <div class="price-targets">
+                <div class="target-item">
+                    <span class="target-label">平均目标价</span>
+                    <span class="target-value">$${data.price_target_average.toFixed(2)}</span>
+                </div>
+                ${data.price_target_low ? `
+                <div class="target-item">
+                    <span class="target-label">最低</span>
+                    <span class="target-value">$${data.price_target_low.toFixed(2)}</span>
+                </div>
+                ` : ''}
+                ${data.price_target_high ? `
+                <div class="target-item">
+                    <span class="target-label">最高</span>
+                    <span class="target-value">$${data.price_target_high.toFixed(2)}</span>
+                </div>
+                ` : ''}
+            </div>
+        `;
+    }
+    
+    if (data.recent_ratings && data.recent_ratings.length > 0) {
+        html += '<div class="recent-ratings">';
+        data.recent_ratings.slice(0, 5).forEach(rating => {
+            const ratingClass = rating.rating?.toLowerCase().includes('buy') ? 'rating-buy' : 
+                               rating.rating?.toLowerCase().includes('sell') ? 'rating-sell' : 'rating-hold';
+            
             html += `
-                <div class="analyst-rating">
-                    <div>
-                        <div style="font-weight: 600;">${rating.firm || 'Unknown Firm'}</div>
-                        <div style="font-size: 0.85rem; color: #666;">${rating.date || ''}</div>
-                    </div>
-                    <div style="text-align: right;">
+                <div class="rating-item">
+                    <div class="rating-firm">${rating.firm || 'Unknown'}</div>
+                    <div class="rating-info">
                         <span class="rating-badge ${ratingClass}">${rating.rating || 'N/A'}</span>
-                        <div style="font-size: 0.85rem; color: #666; margin-top: 5px;">
-                            目标价：${rating.target_price ? formatCurrency(rating.target_price) : 'N/A'}
-                        </div>
+                        ${rating.target ? `<span class="rating-target">$${rating.target}</span>` : ''}
+                        ${rating.date ? `<span class="rating-date">${rating.date}</span>` : ''}
                     </div>
                 </div>
             `;
         });
+        html += '</div>';
     }
     
-    // 新闻
-    if (newsData.news && newsData.news.length > 0) {
-        html += '<h4 style="margin: 25px 0 15px; color: #333;">📰 最新新闻</h4>';
-        newsData.news.slice(0, 5).forEach(news => {
+    container.innerHTML = html || '<p class="no-data">暂无数据</p>';
+}
+
+function displaySentiment(data) {
+    const container = document.getElementById('socialSentiment');
+    
+    if (data.error || (!data.posts || data.posts.length === 0)) {
+        container.innerHTML = '<p class="no-data">暂无社交媒体情绪数据</p>';
+        return;
+    }
+    
+    const sentimentClass = data.sentiment_label === 'Positive' ? 'sentiment-positive' :
+                          data.sentiment_label === 'Negative' ? 'sentiment-negative' : 'sentiment-neutral';
+    
+    let html = `
+        <div class="sentiment-summary">
+            <div class="sentiment-badge ${sentimentClass}">${data.sentiment_label}</div>
+            <span class="sentiment-score">分数：${data.sentiment_score?.toFixed(2) || '0.00'}</span>
+        </div>
+    `;
+    
+    if (data.posts && data.posts.length > 0) {
+        html += '<div class="social-posts">';
+        data.posts.forEach(post => {
+            const postClass = post.sentiment === 'positive' ? 'post-positive' :
+                            post.sentiment === 'negative' ? 'post-negative' : 'post-neutral';
+            
             html += `
-                <div class="news-item">
-                    <h4>${news.headline || '无标题'}</h4>
-                    <div class="meta">
-                        <span>${news.source || 'Unknown'}</span>
-                        <span style="margin: 0 10px;">•</span>
-                        <span>${news.date || 'Unknown'}</span>
+                <div class="post-item ${postClass}">
+                    <div class="post-title">${post.title || '无标题'}</div>
+                    <div class="post-meta">
+                        <span>👍 ${post.upvotes || 0}</span>
+                        <span>💬 ${post.comments || 0}</span>
                     </div>
-                    <p>${news.summary || '无摘要'}</p>
                 </div>
             `;
         });
+        html += '</div>';
     }
     
-    newsContent.innerHTML = html;
+    container.innerHTML = html;
 }
 
-function getRatingClass(rating) {
-    if (!rating) return 'rating-hold';
-    const r = rating.toLowerCase();
-    if (r.includes('buy') || r.includes('outperform') || r.includes('overweight')) {
-        return 'rating-buy';
-    } else if (r.includes('sell') || r.includes('underperform')) {
-        return 'rating-sell';
+function displayMetrics(data) {
+    const container = document.getElementById('keyMetrics');
+    
+    if (data.error || Object.keys(data).length === 0) {
+        container.innerHTML = '<p class="no-data">暂无关键指标数据</p>';
+        return;
     }
-    return 'rating-hold';
+    
+    const metrics = [
+        { label: '市值', key: 'market_cap', format: 'string' },
+        { label: '市盈率 (PE)', key: 'pe_ratio', format: 'number' },
+        { label: '远期 PE', key: 'forward_pe', format: 'number' },
+        { label: '每股收益 (EPS)', key: 'eps', format: 'currency' },
+        { label: '股息率', key: 'dividend_yield', format: 'string' },
+        { label: 'Beta', key: 'beta', format: 'number' },
+        { label: '52 周高点', key: '52_week_high', format: 'currency' },
+        { label: '52 周低点', key: '52_week_low', format: 'currency' },
+        { label: '平均成交量', key: 'avg_volume', format: 'number' }
+    ];
+    
+    let html = '<div class="metrics-grid">';
+    
+    metrics.forEach(metric => {
+        const value = data[metric.key];
+        let displayValue = 'N/A';
+        
+        if (value !== null && value !== undefined) {
+            if (metric.format === 'currency') {
+                displayValue = `$${typeof value === 'number' ? value.toFixed(2) : value}`;
+            } else if (metric.format === 'number') {
+                displayValue = typeof value === 'number' ? value.toFixed(2) : value;
+            } else {
+                displayValue = value;
+            }
+        }
+        
+        html += `
+            <div class="metric-item">
+                <span class="metric-label">${metric.label}</span>
+                <span class="metric-value">${displayValue}</span>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
 }
 
-function formatCurrency(value) {
-    if (value === null || value === undefined) return 'N/A';
-    return '$' + parseFloat(value).toFixed(2);
-}
-
-function formatMarketCap(value) {
-    if (value === null || value === undefined) return 'N/A';
-    const num = parseFloat(value);
-    if (num >= 1e12) {
-        return '$' + (num / 1e12).toFixed(2) + 'T';
-    } else if (num >= 1e9) {
-        return '$' + (num / 1e9).toFixed(2) + 'B';
-    } else if (num >= 1e6) {
-        return '$' + (num / 1e6).toFixed(2) + 'M';
+function displayNews(data) {
+    const container = document.getElementById('newsList');
+    
+    if (data.error || (!data.news || data.news.length === 0)) {
+        container.innerHTML = '<p class="no-data">暂无新闻</p>';
+        return;
     }
-    return '$' + num.toFixed(2);
-}
-
-function formatNumber(value) {
-    if (value === null || value === undefined) return 'N/A';
-    return parseFloat(value).toLocaleString();
+    
+    let html = '<div class="news-items">';
+    
+    data.news.forEach((item, index) => {
+        html += `
+            <div class="news-item">
+                <h4 class="news-headline">${item.headline || '无标题'}</h4>
+                <div class="news-meta">
+                    <span class="news-source">${item.source || 'Unknown'}</span>
+                    <span class="news-date">${item.date || 'Unknown'}</span>
+                </div>
+                ${item.summary ? `<p class="news-summary">${item.summary}</p>` : ''}
+                ${item.url ? `<a href="${item.url}" target="_blank" class="news-link">阅读全文 →</a>` : ''}
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
 }
 
 function showLoading() {
     document.getElementById('loadingSection').style.display = 'block';
     document.getElementById('errorSection').style.display = 'none';
     document.getElementById('searchResults').innerHTML = '';
+    document.getElementById('stockDetail').style.display = 'none';
 }
 
 function hideLoading() {
@@ -430,7 +318,6 @@ function showError(message) {
     hideLoading();
     document.getElementById('errorMessage').textContent = message;
     document.getElementById('errorSection').style.display = 'block';
-    document.getElementById('stockDetail').style.display = 'none';
 }
 
 function hideError() {
@@ -442,5 +329,9 @@ function hideSearchResults() {
 }
 
 function retrySearch() {
-    handleSearch();
+    if (currentSymbol) {
+        loadStockDetail(currentSymbol);
+    } else {
+        handleSearch();
+    }
 }
