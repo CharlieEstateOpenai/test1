@@ -432,61 +432,42 @@ function displaySentiment(data) {
 function displayMetrics(data) {
     const container = document.getElementById('keyMetrics');
     
-    if (data.error || Object.keys(data).length === 0) {
+    if (data.error || Object.keys(data).length === 0 || !data.market_cap) {
         container.innerHTML = '<div class="no-data">No key metrics available</div>';
         return;
     }
     
-    // 定义更多指标，按类别分组
+    // 定义指标，按类别分组 - 只显示常见且有数据的指标
     const metricsByCategory = {
         'Valuation': [
             { label: 'Market Cap', key: 'market_cap', format: 'string' },
             { label: 'P/E Ratio', key: 'pe_ratio', format: 'number' },
-            { label: 'Forward PE', key: 'forward_pe', format: 'number' },
-            { label: 'PEG Ratio', key: 'peg_ratio', format: 'number' },
-            { label: 'P/S Ratio', key: 'ps_ratio', format: 'number' },
-            { label: 'P/B Ratio', key: 'pb_ratio', format: 'number' },
-            { label: 'Price/Cash Flow', key: 'price_cash_flow', format: 'number' }
-        ],
-        'Profitability': [
             { label: 'EPS', key: 'eps', format: 'currency' },
-            { label: 'Operating Margin', key: 'operating_margin', format: 'percent' },
-            { label: 'Profit Margin', key: 'profit_margin', format: 'percent' },
-            { label: 'Return on Equity', key: 'roe', format: 'percent' },
-            { label: 'Return on Assets', key: 'roa', format: 'percent' }
+            { label: 'Dividend Yield', key: 'dividend_yield', format: 'percent' }
         ],
         'Trading Info': [
             { label: 'Beta', key: 'beta', format: 'number' },
             { label: '52W High', key: '52_week_high', format: 'currency' },
             { label: '52W Low', key: '52_week_low', format: 'currency' },
-            { label: 'Avg Volume', key: 'avg_volume', format: 'number' },
-            { label: 'Shares Out', key: 'shares_outstanding', format: 'number' },
-            { label: 'Float', key: 'float', format: 'number' }
-        ],
-        'Ownership': [
-            { label: 'Insider Own', key: 'insider_ownership', format: 'percent' },
-            { label: 'Institutional', key: 'institutional_ownership', format: 'percent' },
-            { label: 'Short Ratio', key: 'short_ratio', format: 'number' }
-        ],
-        'Dividends': [
-            { label: 'Dividend Yield', key: 'dividend_yield', format: 'percent' }
-        ],
-        'Growth': [
-            { label: 'Quarterly Earnings Growth', key: 'quarterly_earnings_growth', format: 'percent' },
-            { label: 'Quarterly Revenue Growth', key: 'quarterly_revenue_growth', format: 'percent' }
+            { label: 'Avg Volume', key: 'avg_volume', format: 'number' }
         ]
     };
     
     let html = '<div class="metrics-sections">';
+    let hasAnyMetrics = false;
     
     // 为每个类别创建卡片
     Object.entries(metricsByCategory).forEach(([category, metrics]) => {
         const categoryMetrics = metrics.filter(m => {
             const value = data[m.key];
-            return value !== null && value !== undefined && value !== 'N/A';
+            // 严格检查：必须有值且不是 N/A、null、undefined、空字符串
+            return value !== null && value !== undefined && value !== 'N/A' && value !== '' && value !== 'null';
         });
         
+        // 只显示有至少一个有效指标的类别
         if (categoryMetrics.length === 0) return;
+        
+        hasAnyMetrics = true;
         
         html += `
             <div class="metric-category">
@@ -498,7 +479,7 @@ function displayMetrics(data) {
             const value = data[metric.key];
             let displayValue = 'N/A';
             
-            if (value !== null && value !== undefined) {
+            if (value !== null && value !== undefined && value !== '') {
                 if (metric.format === 'currency') {
                     displayValue = `$${typeof value === 'number' ? value.toFixed(2) : value}`;
                 } else if (metric.format === 'percent') {
@@ -530,7 +511,13 @@ function displayMetrics(data) {
     });
     
     html += '</div>';
-    container.innerHTML = html || '<div class="no-data">No key metrics available</div>';
+    
+    // 如果没有任何有效指标，显示提示
+    if (!hasAnyMetrics) {
+        container.innerHTML = '<div class="no-data">No key metrics available</div>';
+    } else {
+        container.innerHTML = html;
+    }
 }
 
 function displayNews(data) {

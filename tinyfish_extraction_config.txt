@@ -1,0 +1,263 @@
+================================================================================
+TINYFISH WEB AGENT - COMPLETE EXTRACTION CONFIGURATION
+================================================================================
+
+This file contains all URLs and extraction instructions for the TinyFish Web Agent
+to scrape stock market data for our NASDAQ analysis web application.
+
+================================================================================
+1. STOCK PRICE DATA
+================================================================================
+
+URL: https://www.google.com/finance/quote/{SYMBOL}:NASDAQ
+
+What do you want to extract?
+Go to https://www.google.com/finance/quote/{SYMBOL}:NASDAQ and extract:
+- Current stock price in USD
+- Price change (absolute value)
+- Price change percentage
+- Stock symbol/ticker
+
+Return as JSON:
+{
+  "symbol": "AAPL",
+  "price": 257.46,
+  "change": -2.83,
+  "change_percent": -1.09,
+  "currency": "USD"
+}
+
+================================================================================
+2. STOCK PRICE DATA (Yahoo Finance Chart)
+================================================================================
+
+URL: https://query1.finance.yahoo.com/v8/finance/chart/{SYMBOL}?range=1d&interval=1m
+
+What do you want to extract?
+Go to https://query1.finance.yahoo.com/v8/finance/chart/{SYMBOL}?range=1d&interval=1m and extract:
+- Current stock price from chart data
+- Previous close price
+- Price change and percentage change
+- Trading volume
+
+Return as JSON:
+{
+  "symbol": "AAPL",
+  "price": 257.46,
+  "change": -2.83,
+  "change_percent": -1.09,
+  "volume": 52000000,
+  "currency": "USD"
+}
+
+================================================================================
+3. ANALYST RATINGS (TradingView)
+================================================================================
+
+URL: https://www.tradingview.com/symbols/{SYMBOL}/
+
+What do you want to extract?
+Go to https://www.tradingview.com/symbols/{SYMBOL}/ and extract:
+- Analyst recommendation rating (Strong Buy/Buy/Hold/Sell/Strong Sell)
+- Number of analysts
+- Technical analysis rating if available
+
+Return as JSON:
+{
+  "consensus": "Buy",
+  "analyst_count": 25,
+  "technical_rating": "Buy"
+}
+
+================================================================================
+4. ANALYST RATINGS (StockAnalysis)
+================================================================================
+
+URL: https://stockanalysis.com/stocks/{SYMBOL}/
+
+What do you want to extract?
+Go to https://stockanalysis.com/stocks/{symbol}/ and extract:
+- Analyst rating or recommendation
+- Price target (average, high, low)
+- Number of analysts covering the stock
+
+Return as JSON:
+{
+  "consensus": "Buy",
+  "price_target": 200.00,
+  "analyst_count": 30
+}
+
+================================================================================
+5. ANALYST RATINGS (Yahoo Finance)
+================================================================================
+
+URL: https://finance.yahoo.com/quote/{SYMBOL}
+
+What do you want to extract?
+Go to https://finance.yahoo.com/quote/{SYMBOL} and extract:
+- Analyst recommendation text (Strong Buy/Buy/Hold/Sell/Strong Sell)
+- Analyst price targets
+- Earnings estimates if available
+
+Return as JSON:
+{
+  "consensus": "Buy",
+  "price_target_avg": 200.00,
+  "eps_estimate": 5.50
+}
+
+================================================================================
+6. KEY METRICS (Finviz)
+================================================================================
+
+URL: https://finviz.com/quote.ashx?t={SYMBOL}
+
+What do you want to extract?
+Go to https://finviz.com/quote.ashx?t={SYMBOL} and extract:
+- Market Cap
+- P/E Ratio (TTM)
+- Forward P/E
+- EPS (TTM)
+- Dividend Yield
+- Beta
+- 52-Week High and Low
+- Average Volume
+- Shares Outstanding
+- Insider Ownership %
+- Institutional Ownership %
+- Short Ratio
+- PEG Ratio
+- P/S Ratio
+- P/B Ratio
+- Price to Cash Flow
+- Operating Margin
+- Profit Margin
+- Return on Equity (ROE)
+- Return on Assets (ROA)
+- Revenue (TTM)
+- Gross Profit
+- EBITDA
+- Net Income
+- Diluted EPS
+- Quarterly Earnings Growth
+- Quarterly Revenue Growth
+- Analyst Recommendation
+
+Return as JSON with all available metrics.
+
+================================================================================
+7. EARNINGS DATA (Yahoo Finance)
+================================================================================
+
+URL: https://finance.yahoo.com/quote/{SYMBOL}/earnings
+
+What do you want to extract?
+Go to https://finance.yahoo.com/quote/{SYMBOL}/earnings and extract:
+- Next earnings date
+- EPS estimate for next quarter
+- Revenue estimate for next quarter
+- Last quarter EPS actual vs estimate
+- EPS surprise percentage
+- Last quarter revenue
+- Earnings history (last 4 quarters)
+
+Return as JSON:
+{
+  "next_earnings_date": "2024-04-25",
+  "eps_estimate": 1.50,
+  "revenue_estimate": "90.5B",
+  "eps_actual": 1.52,
+  "eps_surprise": "2.5%",
+  "last_quarter_revenue": "89.5B"
+}
+
+================================================================================
+8. NASDAQ STOCK LIST
+================================================================================
+
+URL: https://www.nasdaq.com/market-activity/stocks/screener
+
+What do you want to extract?
+Go to https://www.nasdaq.com/market-activity/stocks/screener and extract:
+- Stock symbol/ticker for each company
+- Company name
+- Exchange (NASDAQ/NYSE)
+- Sector and industry if available
+- Market cap if available
+
+Return as JSON array:
+[
+  {
+    "symbol": "AAPL",
+    "name": "Apple Inc.",
+    "exchange": "NASDAQ",
+    "sector": "Technology",
+    "market_cap": "2.5T"
+  },
+  ...
+]
+
+================================================================================
+9. SOCIAL SENTIMENT (Yahoo Finance)
+================================================================================
+
+URL: https://finance.yahoo.com/quote/{SYMBOL}
+
+What do you want to extract?
+Go to https://finance.yahoo.com/quote/{SYMBOL} and extract:
+- News sentiment (positive/negative/neutral)
+- Number of news articles
+- Trending status
+- Social media buzz if available
+
+Return as JSON:
+{
+  "sentiment": "positive",
+  "news_count": 25,
+  "trending": true
+}
+
+================================================================================
+ALL URLs (Copy-Paste Format)
+================================================================================
+
+Enter URLs (separated by newlines, spaces, or commas):
+
+https://agent.tinyfish.ai/v1/automation/run
+https://www.nasdaq.com/market-activity/stocks/screener
+https://finviz.com/quote.ashx
+https://www.tradingview.com/symbols/
+https://stockanalysis.com/stocks/
+https://finance.yahoo.com/quote/
+https://www.google.com/finance/quote/
+https://query1.finance.yahoo.com/v8/finance/chart/
+
+================================================================================
+USAGE NOTES
+================================================================================
+
+1. Replace {SYMBOL} with actual stock ticker (e.g., AAPL, TSLA, MSFT)
+2. All URLs should be called via TinyFish API endpoint:
+   POST https://agent.tinyfish.ai/v1/automation/run
+
+3. Recommended timeout settings:
+   - Price data: 30 seconds
+   - Analyst ratings: 20-45 seconds
+   - Key metrics: 45 seconds
+   - Earnings data: 90 seconds
+   - Stock list: 90 seconds
+
+4. Caching recommendations:
+   - Price data: 15 minutes
+   - Analyst ratings: 2 hours
+   - Key metrics: 2 hours
+   - Earnings data: 6 hours
+   - Stock list: 24 hours
+
+5. Fallback strategy:
+   - Try multiple sources for critical data
+   - Use first successful response
+   - Return default values if all sources fail
+
+================================================================================
