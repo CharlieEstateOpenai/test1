@@ -27,13 +27,16 @@ async function callTinyFish(url, instructions, timeout = 60000) {
   try {
     console.log(`Calling TinyFish API: ${url.substring(0, 80)}...`);
     
-    const response = await fetch(`${apiUrl}/web-agent`, {
+    const response = await fetch(`${apiUrl}/automation/run`, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${apiKey}`,
+        "X-API-Key": apiKey,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({ url, instructions }),
+      body: JSON.stringify({ 
+        url: url,
+        goal: instructions
+      }),
       signal: controller.signal
     });
 
