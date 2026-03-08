@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About - Nasdaq Stock Analysis</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .about-section {
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            margin-bottom: 32px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .about-section h2 {
+            font-size: 2rem;
+            margin-bottom: 16px;
+            color: #1a1a1a;
+        }
+        
+        .about-section p {
+            color: #666;
+            line-height: 1.8;
+            margin-bottom: 16px;
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 24px;
+            margin-top: 32px;
+        }
+        
+        .feature-card {
+            padding: 24px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #0066cc;
+        }
+        
+        .feature-card h3 {
+            font-size: 1.25rem;
+            margin-bottom: 12px;
+            color: #1a1a1a;
+        }
+        
+        .feature-card p {
+            color: #666;
+            font-size: 0.95rem;
+            margin: 0;
+        }
+        
+        .watchlist-section {
+            margin-top: 24px;
+        }
+        
+        .watchlist-empty {
+            text-align: center;
+            padding: 48px 24px;
+            color: #999;
+        }
+        
+        .watchlist-empty h3 {
+            font-size: 1.5rem;
+            margin-bottom: 12px;
+            color: #666;
+        }
+        
+        .watchlist-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+            margin-top: 24px;
+        }
+        
+        .watchlist-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        
+        .watchlist-item:hover {
+            background: #f0f7ff;
+            transform: translateX(4px);
+        }
+        
+        .watchlist-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .watchlist-symbol {
+            font-weight: 700;
+            color: #1a1a1a;
+            font-size: 1.1rem;
+        }
+        
+        .watchlist-name {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .watchlist-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .btn-view {
+            padding: 8px 16px;
+            background: #0066cc;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        .btn-view:hover {
+            background: #0052a3;
+            transform: translateY(-1px);
+        }
+        
+        .btn-remove {
+            padding: 8px 16px;
+            background: #dc2626;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        .btn-remove:hover {
+            background: #b91c1c;
+        }
+        
+        .add-to-watchlist {
+            margin-top: 24px;
+            padding: 24px;
+            background: linear-gradient(135deg, #f0f7ff 0%, #e6f2ff 100%);
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .add-to-watchlist h3 {
+            margin-bottom: 12px;
+            color: #1a1a1a;
+        }
+        
+        .add-to-watchlist p {
+            color: #666;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <span class="logo">📈</span>
+                <h1>Nasdaq Stock Analysis</h1>
+            </div>
+            <div class="nav-links">
+                <a href="/" class="nav-link">Home</a>
+                <a href="/trending.html" class="nav-link">Trending</a>
+                <a href="/about.html" class="nav-link active">About</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container main-content">
+        <div class="about-section">
+            <h2>About Nasdaq Stock Analysis</h2>
+            <p>
+                Welcome to Nasdaq Stock Analysis, your comprehensive platform for real-time stock market insights and analysis. 
+                Our platform provides detailed information about Nasdaq-listed companies, including analyst ratings, key metrics, 
+                company profiles, and earnings data.
+            </p>
+            <p>
+                We leverage advanced data aggregation to bring you the most up-to-date information from trusted sources like 
+                Yahoo Finance, Finviz, and TipRanks. Whether you're a seasoned investor or just starting your investment journey, 
+                our platform offers the tools you need to make informed decisions.
+            </p>
+            
+            <div class="features-grid">
+                <div class="feature-card">
+                    <h3>📊 Real-Time Data</h3>
+                    <p>Access live stock prices and market data with minimal delay</p>
+                </div>
+                <div class="feature-card">
+                    <h3>📈 Analyst Ratings</h3>
+                    <p>Professional analyst recommendations and price targets</p>
+                </div>
+                <div class="feature-card">
+                    <h3>🏢 Company Profiles</h3>
+                    <p>Detailed company information including sector, industry, and description</p>
+                </div>
+                <div class="feature-card">
+                    <h3>💰 Earnings Data</h3>
+                    <p>Upcoming earnings dates, estimates, and historical performance</p>
+                </div>
+                <div class="feature-card">
+                    <h3> Key Metrics</h3>
+                    <p>Essential financial metrics like P/E, EPS, market cap, and more</p>
+                </div>
+                <div class="feature-card">
+                    <h3>⭐ Watchlist</h3>
+                    <p>Track your favorite stocks and monitor them easily</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="about-section watchlist-section">
+            <h2>⭐ My Watchlist</h2>
+            <p>Track your favorite stocks and monitor their performance</p>
+            
+            <div id="watchlistContent">
+                <div class="loading-section" style="display: block;">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">Loading watchlist...</div>
+                </div>
+            </div>
+            
+            <div class="add-to-watchlist">
+                <h3>📝 Add Stocks to Your Watchlist</h3>
+                <p>Search for stocks on the Home page and click the "Add to Watchlist" button to track them here</p>
+                <button onclick="window.location.href='/'" class="btn-view">Go to Home</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Watchlist management
+        function getWatchlist() {
+            const watchlist = localStorage.getItem('stockWatchlist');
+            return watchlist ? JSON.parse(watchlist) : [];
+        }
+
+        function saveWatchlist(watchlist) {
+            localStorage.setItem('stockWatchlist', JSON.stringify(watchlist));
+        }
+
+        function addToWatchlist(symbol, name) {
+            const watchlist = getWatchlist();
+            if (!watchlist.find(item => item.symbol === symbol)) {
+                watchlist.push({ symbol, name, addedAt: new Date().toISOString() });
+                saveWatchlist(watchlist);
+                return true;
+            }
+            return false;
+        }
+
+        function removeFromWatchlist(symbol) {
+            const watchlist = getWatchlist();
+            const filtered = watchlist.filter(item => item.symbol !== symbol);
+            saveWatchlist(filtered);
+            return filtered;
+        }
+
+        async function fetchPrice(symbol) {
+            try {
+                const response = await fetch(`/api/stock/${symbol}/price`);
+                const data = await response.json();
+                return data.data || {};
+            } catch (error) {
+                return {};
+            }
+        }
+
+        function renderWatchlist() {
+            const watchlist = getWatchlist();
+            const container = document.getElementById('watchlistContent');
+            
+            if (watchlist.length === 0) {
+                container.innerHTML = `
+                    <div class="watchlist-empty">
+                        <h3>No stocks in watchlist</h3>
+                        <p>Start adding stocks from the Home page to track them here</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = `
+                <h3 style="margin-bottom: 16px;">Your Watchlist (${watchlist.length} stocks)</h3>
+                <div id="watchlistGrid" class="watchlist-grid">
+                    <div class="loading-section" style="display: block;">
+                        <div class="loading-spinner"></div>
+                        <div class="loading-text">Loading stock data...</div>
+                    </div>
+                </div>
+            `;
+            
+            // Load data for each stock
+            loadWatchlistData(watchlist);
+        }
+
+        async function loadWatchlistData(watchlist) {
+            const grid = document.getElementById('watchlistGrid');
+            
+            try {
+                const stockData = await Promise.all(
+                    watchlist.map(async (item) => {
+                        const priceData = await fetchPrice(item.symbol);
+                        return { ...item, priceData };
+                    })
+                );
+                
+                grid.innerHTML = stockData.map(item => {
+                    const price = item.priceData.price || item.priceData.current_price || 0;
+                    const change = item.priceData.change || 0;
+                    const changePercent = item.priceData.change_percent || 0;
+                    const isPositive = change >= 0;
+                    
+                    return `
+                        <div class="watchlist-item">
+                            <div class="watchlist-info">
+                                <div>
+                                    <div class="watchlist-symbol">${item.symbol}</div>
+                                    <div class="watchlist-name">${item.name}</div>
+                                </div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-weight: 700;">$${price.toFixed(2)}</div>
+                                <div style="font-size: 0.85rem; color: ${isPositive ? '#16a34a' : '#dc2626'};">
+                                    ${isPositive ? '+' : ''}${change.toFixed(2)} (${changePercent.toFixed(2)}%)
+                                </div>
+                            </div>
+                            <div class="watchlist-actions">
+                                <button onclick="window.location.href='/?symbol=${item.symbol}'" class="btn-view">View</button>
+                                <button onclick="removeStock('${item.symbol}')" class="btn-remove">Remove</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+            } catch (error) {
+                console.error('Error loading watchlist data:', error);
+                grid.innerHTML = '<div class="error-section"><div class="error-message">Failed to load watchlist data</div></div>';
+            }
+        }
+
+        function removeStock(symbol) {
+            const watchlist = removeFromWatchlist(symbol);
+            if (watchlist.length === 0) {
+                renderWatchlist();
+            } else {
+                loadWatchlistData(watchlist);
+            }
+        }
+
+        // Load watchlist on page ready
+        document.addEventListener('DOMContentLoaded', renderWatchlist);
+    </script>
+</body>
+</html>

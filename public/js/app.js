@@ -1,5 +1,7 @@
 const API_BASE = window.location.origin;
 let currentSymbol = null;
+let currentCompanyName = null;
+let searchTimeout = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('searchInput');
@@ -9,6 +11,38 @@ document.addEventListener('DOMContentLoaded', () => {
     searchInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') handleSearch();
     });
+    
+    // Real-time search suggestions
+    searchInput.addEventListener('input', (e) => {
+        const query = e.target.value.trim();
+        
+        clearTimeout(searchTimeout);
+        
+        if (query.length < 2) {
+            hideSearchResults();
+            return;
+        }
+        
+        // Debounce search
+        searchTimeout = setTimeout(() => {
+            fetchSearchSuggestions(query);
+        }, 300);
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.search-section')) {
+            hideSearchResults();
+        }
+    });
+    
+    // Check URL for symbol parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const symbolFromUrl = urlParams.get('symbol');
+    if (symbolFromUrl) {
+        searchInput.value = symbolFromUrl;
+        loadStockDetail(symbolFromUrl.toUpperCase());
+    }
 });
 
 async function handleSearch() {
@@ -16,198 +50,353 @@ async function handleSearch() {
     const query = searchInput.value.trim();
     
     if (!query) {
-        showError('请输入股票代码或公司名称');
+        showError('Please enter a stock symbol or company name');
         return;
     }
 
-    showLoading();
-    
-    try {
-        console.log('Searching for:', query);
-        await loadStockDetail(query.toUpperCase());
-    } catch (error) {
-        console.error('Search error:', error);
-        showError(error.message || '搜索失败，请稍后重试');
-    }
-}
-
-async function loadStockDetail(symbol) {
-    currentSymbol = symbol.toUpperCase();
-    hideError();
     hideSearchResults();
     showLoading();
     
     try {
-        console.log('Loading data for:', symbol);
+        await loadStockDetail(query.toUpperCase());
+    } catch (error) {
+        console.error('Search error:', error);
+        showError(error.message || 'Search failed. Please try again.');
+    }
+}
+
+async function fetchSearchSuggestions(query) {
+    try {
+        const response = await fetch(`${API_BASE}/api/search?q=${encodeURIComponent(query)}`);
+        const data = await response.json();
         
-        // 并行加载所有数据
-        const [priceData, ratingsData, sentimentData, metricsData, newsData] = await Promise.all([
+        displaySearchResults(data.results || []);
+    } catch (error) {
+        console.error('Fetch suggestions error:', error);
+    }
+}
+
+function displaySearchResults(results) {
+    const container = document.getElementById('searchResults');
+    
+    if (results.length === 0) {
+        container.innerHTML = '<div class="no-results">No stocks found</div>';
+        container.classList.add('active');
+        return;
+    }
+    
+    container.innerHTML = results.map(result => `
+        <div class="search-result-item" onclick="selectStock('${result.symbol}', '${result.name.replace(/'/g, "\\'")}')">
+            <div class="search-result-symbol">${result.symbol}</div>
+            <div class="search-result-name">${result.name}</div>
+            ${result.exchange ? `<div class="search-result-exchange">${result.exchange}</div>` : ''}
+        </div>
+    `).join('');
+    
+    container.classList.add('active');
+}
+
+function selectStock(symbol, name) {
+    const searchInput = document.getElementById('searchInput');
+    searchInput.value = symbol;
+    hideSearchResults();
+    loadStockDetail(symbol);
+}
+
+function hideSearchResults() {
+    const container = document.getElementById('searchResults');
+    container.classList.remove('active');
+}
+
+async function loadStockDetail(symbol) {
+    currentSymbol = symbol.toUpperCase();
+    showLoading();
+    
+    try {
+        const [priceData, ratingsData, profileData, metricsData, earningsData] = await Promise.all([
             fetchPrice(currentSymbol),
             fetchRatings(currentSymbol),
-            fetchSentiment(currentSymbol),
+            fetchProfile(currentSymbol),
             fetchMetrics(currentSymbol),
-            fetchNews(currentSymbol)
+            fetchEarnings(currentSymbol)
         ]);
-        
-        console.log('All data loaded');
         
         displayPrice(priceData);
         displayRatings(ratingsData);
-        displaySentiment(sentimentData);
+        displayProfile(profileData);
         displayMetrics(metricsData);
-        displayNews(newsData);
+        displayEarnings(earningsData);
         
         document.getElementById('stockDetail').style.display = 'block';
         hideLoading();
     } catch (error) {
         console.error('Load detail error:', error);
-        showError(error.message || '加载数据失败');
+        showError('Failed to load data. Please try again.');
     }
 }
 
 async function fetchPrice(symbol) {
-    console.log('Fetching price for:', symbol);
     const response = await fetch(`${API_BASE}/api/stock/${symbol}/price`);
     const data = await response.json();
-    console.log('Price API response:', data);
     return data.data || {};
 }
 
 async function fetchRatings(symbol) {
-    console.log('Fetching ratings for:', symbol);
     const response = await fetch(`${API_BASE}/api/stock/${symbol}/ratings`);
     const data = await response.json();
-    console.log('Ratings API response:', data);
     return data.data || {};
 }
 
-async function fetchSentiment(symbol) {
-    console.log('Fetching sentiment for:', symbol);
-    const response = await fetch(`${API_BASE}/api/stock/${symbol}/sentiment`);
+async function fetchProfile(symbol) {
+    const response = await fetch(`${API_BASE}/api/stock/${symbol}/profile`);
     const data = await response.json();
-    console.log('Sentiment API response:', data);
     return data.data || {};
 }
 
 async function fetchMetrics(symbol) {
-    console.log('Fetching metrics for:', symbol);
     const response = await fetch(`${API_BASE}/api/stock/${symbol}/metrics`);
     const data = await response.json();
-    console.log('Metrics API response:', data);
     return data.data || {};
 }
 
-async function fetchNews(symbol) {
-    console.log('Fetching news for:', symbol);
-    const response = await fetch(`${API_BASE}/api/stock/${symbol}/news`);
+async function fetchEarnings(symbol) {
+    const response = await fetch(`${API_BASE}/api/stock/${symbol}/earnings`);
     const data = await response.json();
-    console.log('News API response:', data);
     return data.data || {};
 }
 
 function displayPrice(data) {
-    console.log('Displaying price data:', data);
     document.getElementById('stockSymbol').textContent = data.symbol || currentSymbol;
-    document.getElementById('stockName').textContent = data.company_name || 'Stock';
+    document.getElementById('stockName').textContent = data.company_name || data.name || currentCompanyName || 'Stock';
+    currentCompanyName = data.company_name || data.name || currentCompanyName;
     
     const currentPrice = document.getElementById('currentPrice');
     const priceChange = document.getElementById('priceChange');
     
-    if (data.price && typeof data.price === 'number') {
-        currentPrice.textContent = `$${data.price.toFixed(2)}`;
-        
-        const change = data.change || 0;
-        const changePercent = data.change_percent || 0;
-        const isPositive = change >= 0;
-        
-        priceChange.textContent = `${isPositive ? '+' : ''}$${change.toFixed(2)} (${isPositive ? '+' : ''}${changePercent}%)`;
-        priceChange.className = `price-change ${isPositive ? '' : 'negative'}`;
-        currentPrice.style.color = isPositive ? '#2ecc71' : '#e74c3c';
-        priceChange.style.color = isPositive ? '#2ecc71' : '#e74c3c';
-    } else if (data.current_price && typeof data.current_price === 'number') {
-        // 尝试备用字段
-        currentPrice.textContent = `$${data.current_price.toFixed(2)}`;
-        priceChange.textContent = '数据加载中...';
-    } else {
-        console.warn('No valid price data found');
-        currentPrice.textContent = '$0.00';
-        priceChange.textContent = '$0.00 (0.00%)';
+    const price = data.price || data.current_price || data.last_price;
+    const change = data.change || data.price_change;
+    const changePercent = data.change_percent || data.price_change_percent;
+    
+    if (price !== null && price !== undefined) {
+        const priceNum = typeof price === 'number' ? price : parseFloat(price);
+        if (!isNaN(priceNum)) {
+            currentPrice.textContent = `$${priceNum.toFixed(2)}`;
+            
+            const changeNum = typeof change === 'number' ? change : (change ? parseFloat(change) : 0);
+            const changePercentNum = typeof changePercent === 'number' ? changePercent : (changePercent ? parseFloat(changePercent) : 0);
+            const isPositive = changeNum >= 0;
+            
+            const changeDisplay = !isNaN(changeNum) ? changeNum.toFixed(2) : '0.00';
+            const percentDisplay = !isNaN(changePercentNum) ? changePercentNum.toFixed(2) : '0.00';
+            
+            priceChange.textContent = `${isPositive ? '+' : ''}$${changeDisplay} (${isPositive ? '+' : ''}${percentDisplay}%)`;
+            priceChange.className = `price-change ${isPositive ? '' : 'negative'}`;
+            return;
+        }
     }
+    
+    currentPrice.textContent = 'N/A';
+    priceChange.textContent = 'N/A';
 }
 
 function displayRatings(data) {
     const container = document.getElementById('analystRatings');
     
-    if (data.error || (!data.consensus && !data.recent_ratings)) {
-        container.innerHTML = '<p class="no-data">暂无分析师评级数据</p>';
+    if (data.error || (!data.consensus && !data.price_target_average)) {
+        container.innerHTML = '<div class="no-data">No analyst ratings available</div>';
         return;
     }
     
     let html = '';
     
+    // Consensus
     if (data.consensus) {
-        const consensusClass = data.consensus.toLowerCase().includes('buy') ? 'rating-buy' : 
-                               data.consensus.toLowerCase().includes('sell') ? 'rating-sell' : 'rating-hold';
+        const consensusClass = data.consensus.toLowerCase().includes('buy') ? 'consensus-buy' : 
+                               data.consensus.toLowerCase().includes('sell') ? 'consensus-sell' : 'consensus-hold';
         
         html += `
-            <div class="rating-summary">
-                <div class="consensus-badge ${consensusClass}">${data.consensus}</div>
-                ${data.analyst_count ? `<span class="analyst-count">${data.analyst_count} 位分析师</span>` : ''}
+            <div class="rating-consensus">
+                <span class="consensus-badge ${consensusClass}">${data.consensus}</span>
+                ${data.analyst_count ? `<span class="analyst-count">${data.analyst_count} analysts</span>` : ''}
             </div>
         `;
     }
     
-    if (data.price_target_average) {
+    // Price Targets
+    if (data.price_target_low || data.price_target_average || data.price_target_high) {
         html += `
             <div class="price-targets">
-                <div class="target-item">
-                    <span class="target-label">平均目标价</span>
-                    <span class="target-value">$${data.price_target_average.toFixed(2)}</span>
-                </div>
                 ${data.price_target_low ? `
                 <div class="target-item">
-                    <span class="target-label">最低</span>
-                    <span class="target-value">$${data.price_target_low.toFixed(2)}</span>
+                    <span class="target-label">Low</span>
+                    <span class="target-value">$${parseFloat(data.price_target_low).toFixed(2)}</span>
+                </div>
+                ` : ''}
+                ${data.price_target_average ? `
+                <div class="target-item">
+                    <span class="target-label">Average</span>
+                    <span class="target-value">$${parseFloat(data.price_target_average).toFixed(2)}</span>
                 </div>
                 ` : ''}
                 ${data.price_target_high ? `
                 <div class="target-item">
-                    <span class="target-label">最高</span>
-                    <span class="target-value">$${data.price_target_high.toFixed(2)}</span>
+                    <span class="target-label">High</span>
+                    <span class="target-value">$${parseFloat(data.price_target_high).toFixed(2)}</span>
                 </div>
                 ` : ''}
             </div>
         `;
     }
     
-    if (data.recent_ratings && data.recent_ratings.length > 0) {
-        html += '<div class="recent-ratings">';
-        data.recent_ratings.slice(0, 5).forEach(rating => {
-            const ratingClass = rating.rating?.toLowerCase().includes('buy') ? 'rating-buy' : 
-                               rating.rating?.toLowerCase().includes('sell') ? 'rating-sell' : 'rating-hold';
-            
+    container.innerHTML = html || '<div class="no-data">No analyst ratings available</div>';
+}
+
+function displayProfile(data) {
+    const container = document.getElementById('companyProfile');
+    
+    if (data.error || (!data.sector && !data.industry && !data.description)) {
+        container.innerHTML = '<div class="no-data">No company profile available</div>';
+        return;
+    }
+    
+    let html = '';
+    
+    if (data.sector || data.industry) {
+        html += '<div class="metrics-grid" style="margin-bottom: 16px;">';
+        if (data.sector) {
             html += `
-                <div class="rating-item">
-                    <div class="rating-firm">${rating.firm || 'Unknown'}</div>
-                    <div class="rating-info">
-                        <span class="rating-badge ${ratingClass}">${rating.rating || 'N/A'}</span>
-                        ${rating.target ? `<span class="rating-target">$${rating.target}</span>` : ''}
-                        ${rating.date ? `<span class="rating-date">${rating.date}</span>` : ''}
-                    </div>
+                <div class="metric-item">
+                    <span class="metric-label">Sector</span>
+                    <span class="metric-value">${data.sector}</span>
                 </div>
             `;
-        });
+        }
+        if (data.industry) {
+            html += `
+                <div class="metric-item">
+                    <span class="metric-label">Industry</span>
+                    <span class="metric-value">${data.industry}</span>
+                </div>
+            `;
+        }
         html += '</div>';
     }
     
-    container.innerHTML = html || '<p class="no-data">暂无数据</p>';
+    if (data.description) {
+        html += `
+            <div style="margin-bottom: 16px; padding: 16px; background: #f8f9fa; border-radius: 6px;">
+                <h4 style="margin-bottom: 8px; font-size: 0.95rem; color: #666;">About</h4>
+                <p style="line-height: 1.6; color: #333;">${data.description}</p>
+            </div>
+        `;
+    }
+    
+    if (data.employees || data.website || data.headquarters) {
+        html += '<div class="metrics-grid">';
+        if (data.employees) {
+            html += `
+                <div class="metric-item">
+                    <span class="metric-label">Employees</span>
+                    <span class="metric-value">${data.employees.toLocaleString()}</span>
+                </div>
+            `;
+        }
+        if (data.website) {
+            html += `
+                <div class="metric-item">
+                    <span class="metric-label">Website</span>
+                    <span class="metric-value" style="font-size: 0.9rem;">${data.website}</span>
+                </div>
+            `;
+        }
+        if (data.headquarters) {
+            html += `
+                <div class="metric-item">
+                    <span class="metric-label">Headquarters</span>
+                    <span class="metric-value">${data.headquarters}</span>
+                </div>
+            `;
+        }
+        html += '</div>';
+    }
+    
+    container.innerHTML = html || '<div class="no-data">No company profile available</div>';
+}
+
+function displayEarnings(data) {
+    const container = document.getElementById('earningsData');
+    
+    if (data.error || (!data.next_earnings_date && !data.eps_estimate && !data.revenue_estimate)) {
+        container.innerHTML = '<div class="no-data">No earnings data available</div>';
+        return;
+    }
+    
+    let html = '<div class="metrics-grid">';
+    
+    if (data.next_earnings_date) {
+        html += `
+            <div class="metric-item" style="grid-column: span 2;">
+                <span class="metric-label">Next Earnings Date</span>
+                <span class="metric-value">${data.next_earnings_date}</span>
+            </div>
+        `;
+    }
+    
+    if (data.eps_estimate) {
+        html += `
+            <div class="metric-item">
+                <span class="metric-label">EPS Estimate</span>
+                <span class="metric-value">$${parseFloat(data.eps_estimate).toFixed(2)}</span>
+            </div>
+        `;
+    }
+    
+    if (data.eps_actual) {
+        html += `
+            <div class="metric-item">
+                <span class="metric-label">Last EPS Actual</span>
+                <span class="metric-value">$${parseFloat(data.eps_actual).toFixed(2)}</span>
+            </div>
+        `;
+    }
+    
+    if (data.eps_surprise) {
+        const surpriseClass = parseFloat(data.eps_surprise) >= 0 ? '' : 'negative';
+        html += `
+            <div class="metric-item">
+                <span class="metric-label">EPS Surprise</span>
+                <span class="metric-value ${surpriseClass}">${data.eps_surprise}</span>
+            </div>
+        `;
+    }
+    
+    if (data.revenue_estimate) {
+        html += `
+            <div class="metric-item">
+                <span class="metric-label">Revenue Estimate</span>
+                <span class="metric-value">${data.revenue_estimate}</span>
+            </div>
+        `;
+    }
+    
+    if (data.last_quarter_revenue) {
+        html += `
+            <div class="metric-item">
+                <span class="metric-label">Last Quarter Revenue</span>
+                <span class="metric-value">${data.last_quarter_revenue}</span>
+            </div>
+        `;
+    }
+    
+    html += '</div>';
+    container.innerHTML = html || '<div class="no-data">No earnings data available</div>';
 }
 
 function displaySentiment(data) {
     const container = document.getElementById('socialSentiment');
     
     if (data.error || (!data.posts || data.posts.length === 0)) {
-        container.innerHTML = '<p class="no-data">暂无社交媒体情绪数据</p>';
+        container.innerHTML = '<div class="no-data">No social sentiment data available</div>';
         return;
     }
     
@@ -216,23 +405,20 @@ function displaySentiment(data) {
     
     let html = `
         <div class="sentiment-summary">
-            <div class="sentiment-badge ${sentimentClass}">${data.sentiment_label}</div>
-            <span class="sentiment-score">分数：${data.sentiment_score?.toFixed(2) || '0.00'}</span>
+            <span class="sentiment-badge ${sentimentClass}">${data.sentiment_label}</span>
+            <span class="sentiment-score">Score: ${data.sentiment_score?.toFixed(2) || '0.00'}</span>
         </div>
     `;
     
     if (data.posts && data.posts.length > 0) {
         html += '<div class="social-posts">';
         data.posts.forEach(post => {
-            const postClass = post.sentiment === 'positive' ? 'post-positive' :
-                            post.sentiment === 'negative' ? 'post-negative' : 'post-neutral';
-            
             html += `
-                <div class="post-item ${postClass}">
-                    <div class="post-title">${post.title || '无标题'}</div>
+                <div class="post-item">
+                    <div class="post-title">${post.title || post.headline || 'No title'}</div>
                     <div class="post-meta">
-                        <span>👍 ${post.upvotes || 0}</span>
-                        <span>💬 ${post.comments || 0}</span>
+                        ${post.upvotes !== undefined ? `<span>👍 ${post.upvotes}</span>` : ''}
+                        ${post.comments !== undefined ? `<span>💬 ${post.comments}</span>` : ''}
                     </div>
                 </div>
             `;
@@ -240,27 +426,27 @@ function displaySentiment(data) {
         html += '</div>';
     }
     
-    container.innerHTML = html;
+    container.innerHTML = html || '<div class="no-data">No social sentiment data available</div>';
 }
 
 function displayMetrics(data) {
     const container = document.getElementById('keyMetrics');
     
     if (data.error || Object.keys(data).length === 0) {
-        container.innerHTML = '<p class="no-data">暂无关键指标数据</p>';
+        container.innerHTML = '<div class="no-data">No key metrics available</div>';
         return;
     }
     
     const metrics = [
-        { label: '市值', key: 'market_cap', format: 'string' },
-        { label: '市盈率 (PE)', key: 'pe_ratio', format: 'number' },
-        { label: '远期 PE', key: 'forward_pe', format: 'number' },
-        { label: '每股收益 (EPS)', key: 'eps', format: 'currency' },
-        { label: '股息率', key: 'dividend_yield', format: 'string' },
+        { label: 'Market Cap', key: 'market_cap', format: 'string' },
+        { label: 'P/E Ratio', key: 'pe_ratio', format: 'number' },
+        { label: 'Forward PE', key: 'forward_pe', format: 'number' },
+        { label: 'EPS', key: 'eps', format: 'currency' },
+        { label: 'Dividend Yield', key: 'dividend_yield', format: 'string' },
         { label: 'Beta', key: 'beta', format: 'number' },
-        { label: '52 周高点', key: '52_week_high', format: 'currency' },
-        { label: '52 周低点', key: '52_week_low', format: 'currency' },
-        { label: '平均成交量', key: 'avg_volume', format: 'number' }
+        { label: '52W High', key: '52_week_high', format: 'currency' },
+        { label: '52W Low', key: '52_week_low', format: 'currency' },
+        { label: 'Avg Volume', key: 'avg_volume', format: 'number' }
     ];
     
     let html = '<div class="metrics-grid">';
@@ -288,35 +474,35 @@ function displayMetrics(data) {
     });
     
     html += '</div>';
-    container.innerHTML = html;
+    container.innerHTML = html || '<div class="no-data">No key metrics available</div>';
 }
 
 function displayNews(data) {
     const container = document.getElementById('newsList');
     
     if (data.error || (!data.news || data.news.length === 0)) {
-        container.innerHTML = '<p class="no-data">暂无新闻</p>';
+        container.innerHTML = '<div class="no-data">No recent news available</div>';
         return;
     }
     
-    let html = '<div class="news-items">';
+    let html = '<div class="news-list">';
     
     data.news.forEach((item, index) => {
         html += `
             <div class="news-item">
-                <h4 class="news-headline">${item.headline || '无标题'}</h4>
+                <h4 class="news-headline">${item.headline || item.title || 'No title'}</h4>
                 <div class="news-meta">
                     <span class="news-source">${item.source || 'Unknown'}</span>
-                    <span class="news-date">${item.date || 'Unknown'}</span>
+                    <span class="news-date">${item.date || item.time_published || 'Unknown'}</span>
                 </div>
                 ${item.summary ? `<p class="news-summary">${item.summary}</p>` : ''}
-                ${item.url ? `<a href="${item.url}" target="_blank" class="news-link">阅读全文 →</a>` : ''}
+                ${item.url ? `<a href="${item.url}" target="_blank" class="news-link">Read more →</a>` : ''}
             </div>
         `;
     });
     
     html += '</div>';
-    container.innerHTML = html;
+    container.innerHTML = html || '<div class="no-data">No recent news available</div>';
 }
 
 function showLoading() {
@@ -340,14 +526,48 @@ function hideError() {
     document.getElementById('errorSection').style.display = 'none';
 }
 
-function hideSearchResults() {
-    document.getElementById('searchResults').innerHTML = '';
-}
-
 function retrySearch() {
     if (currentSymbol) {
         loadStockDetail(currentSymbol);
     } else {
         handleSearch();
     }
+}
+
+function handleAddToWatchlist() {
+    if (!currentSymbol) {
+        alert('Please search for a stock first');
+        return;
+    }
+    
+    // Get watchlist from localStorage
+    const watchlist = JSON.parse(localStorage.getItem('stockWatchlist') || '[]');
+    
+    // Check if already in watchlist
+    if (watchlist.find(item => item.symbol === currentSymbol)) {
+        alert(`${currentSymbol} is already in your watchlist`);
+        return;
+    }
+    
+    // Add to watchlist
+    const companyName = document.getElementById('stockName').textContent;
+    watchlist.push({
+        symbol: currentSymbol,
+        name: companyName,
+        addedAt: new Date().toISOString()
+    });
+    
+    localStorage.setItem('stockWatchlist', JSON.stringify(watchlist));
+    
+    // Update button
+    const btn = document.getElementById('addToWatchlistBtn');
+    btn.textContent = '✅ Added to Watchlist';
+    btn.style.background = '#16a34a';
+    
+    setTimeout(() => {
+        btn.textContent = '⭐ Add to Watchlist';
+        btn.style.background = '';
+    }, 2000);
+    
+    alert(`${currentSymbol} added to your watchlist!`);
 }

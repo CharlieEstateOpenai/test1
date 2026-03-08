@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trending Stocks - Nasdaq Stock Analysis</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .trending-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 24px;
+            margin-top: 32px;
+        }
+        
+        .stock-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        
+        .stock-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        }
+        
+        .stock-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .stock-card-symbol {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1a1a1a;
+        }
+        
+        .stock-card-name {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 12px;
+        }
+        
+        .stock-card-price {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-bottom: 8px;
+        }
+        
+        .stock-card-change {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        
+        .stock-card-change.positive {
+            color: #16a34a;
+        }
+        
+        .stock-card-change.negative {
+            color: #dc2626;
+        }
+        
+        .stock-card-stats {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid #f0f0f0;
+        }
+        
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+        
+        .stat-label {
+            color: #666;
+        }
+        
+        .stat-value {
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+        
+        .trending-header {
+            background: white;
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .trending-header h2 {
+            font-size: 2rem;
+            margin-bottom: 12px;
+        }
+        
+        .trending-header p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <span class="logo">📈</span>
+                <h1>Nasdaq Stock Analysis</h1>
+            </div>
+            <div class="nav-links">
+                <a href="/" class="nav-link">Home</a>
+                <a href="/trending.html" class="nav-link active">Trending</a>
+                <a href="/about.html" class="nav-link">About</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container main-content">
+        <div class="trending-header">
+            <h2>🔥 Trending Stocks</h2>
+            <p>Most viewed stocks by our users in the last 24 hours</p>
+        </div>
+        
+        <div id="trendingGrid" class="trending-grid">
+            <div class="loading-section" style="display: block;">
+                <div class="loading-spinner"></div>
+                <div class="loading-text">Loading trending stocks...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Popular stocks to display
+        const trendingStocks = [
+            { symbol: 'AAPL', name: 'Apple Inc.' },
+            { symbol: 'TSLA', name: 'Tesla Inc.' },
+            { symbol: 'NVDA', name: 'NVIDIA Corporation' },
+            { symbol: 'MSFT', name: 'Microsoft Corporation' },
+            { symbol: 'AMZN', name: 'Amazon.com Inc.' },
+            { symbol: 'GOOGL', name: 'Alphabet Inc.' },
+            { symbol: 'META', name: 'Meta Platforms Inc.' },
+            { symbol: 'AMD', name: 'Advanced Micro Devices' },
+            { symbol: 'NFLX', name: 'Netflix Inc.' },
+            { symbol: 'COIN', name: 'Coinbase Global Inc.' },
+            { symbol: 'PLTR', name: 'Palantir Technologies' },
+            { symbol: 'SOFI', name: 'SoFi Technologies' }
+        ];
+
+        async function fetchPrice(symbol) {
+            try {
+                const response = await fetch(`/api/stock/${symbol}/price`);
+                const data = await response.json();
+                return data.data || {};
+            } catch (error) {
+                console.error('Error fetching price:', error);
+                return {};
+            }
+        }
+
+        async function fetchRatings(symbol) {
+            try {
+                const response = await fetch(`/api/stock/${symbol}/ratings`);
+                const data = await response.json();
+                return data.data || {};
+            } catch (error) {
+                console.error('Error fetching ratings:', error);
+                return {};
+            }
+        }
+
+        function createStockCard(stock, priceData, ratingsData) {
+            const price = priceData.price || priceData.current_price || 0;
+            const change = priceData.change || 0;
+            const changePercent = priceData.change_percent || 0;
+            const isPositive = change >= 0;
+            
+            const consensus = ratingsData.consensus || 'N/A';
+            const analystCount = ratingsData.analyst_count || 0;
+            const priceTarget = ratingsData.price_target_average || 0;
+            
+            const consensusClass = consensus.toLowerCase().includes('buy') ? 'consensus-buy' : 
+                                   consensus.toLowerCase().includes('sell') ? 'consensus-sell' : 'consensus-hold';
+            
+            return `
+                <div class="stock-card" onclick="window.location.href='/?symbol=${stock.symbol}'">
+                    <div class="stock-card-header">
+                        <div>
+                            <div class="stock-card-symbol">${stock.symbol}</div>
+                            <div class="stock-card-name">${stock.name}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stock-card-price">$${price.toFixed(2)}</div>
+                    <div class="stock-card-change ${isPositive ? 'positive' : 'negative'}">
+                        ${isPositive ? '+' : ''}$${change.toFixed(2)} (${isPositive ? '+' : ''}${changePercent.toFixed(2)}%)
+                    </div>
+                    
+                    <div class="stock-card-stats">
+                        <div class="stat-row">
+                            <span class="stat-label">Consensus</span>
+                            <span class="stat-value consensus-badge ${consensusClass}" style="padding: 4px 12px; font-size: 0.85rem;">${consensus}</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">Analysts</span>
+                            <span class="stat-value">${analystCount}</span>
+                        </div>
+                        ${priceTarget ? `
+                        <div class="stat-row">
+                            <span class="stat-label">Avg Target</span>
+                            <span class="stat-value">$${priceTarget.toFixed(2)}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        async function loadTrendingStocks() {
+            const grid = document.getElementById('trendingGrid');
+            
+            try {
+                // Fetch data for all stocks
+                const stockData = await Promise.all(
+                    trendingStocks.map(async (stock) => {
+                        const [priceData, ratingsData] = await Promise.all([
+                            fetchPrice(stock.symbol),
+                            fetchRatings(stock.symbol)
+                        ]);
+                        return { stock, priceData, ratingsData };
+                    })
+                );
+                
+                grid.innerHTML = stockData
+                    .map(({ stock, priceData, ratingsData }) => 
+                        createStockCard(stock, priceData, ratingsData)
+                    )
+                    .join('');
+                    
+            } catch (error) {
+                console.error('Error loading trending stocks:', error);
+                grid.innerHTML = `
+                    <div class="error-section">
+                        <div class="error-message">Failed to load trending stocks</div>
+                    </div>
+                `;
+            }
+        }
+
+        // Load on page ready
+        document.addEventListener('DOMContentLoaded', loadTrendingStocks);
+    </script>
+</body>
+</html>

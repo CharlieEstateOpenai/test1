@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>股票新闻与情绪分析</title>
+    <title>Nasdaq Stock Analysis</title>
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
@@ -11,133 +11,104 @@
         <div class="container">
             <div class="nav-brand">
                 <span class="logo">📈</span>
-                <h1>股票新闻与情绪分析</h1>
+                <h1>Nasdaq Stock Analysis</h1>
             </div>
             <div class="nav-links">
-                <a href="#" class="nav-link active">首页</a>
-                <a href="#" class="nav-link">热门股票</a>
-                <a href="#" class="nav-link">关于</a>
+                <a href="#" class="nav-link active">Home</a>
+                <a href="#" class="nav-link">Trending</a>
+                <a href="#" class="nav-link">About</a>
             </div>
         </div>
     </nav>
 
     <div class="container main-content">
-        <!-- 搜索区域 -->
+        <!-- Search Section -->
         <div class="search-section">
-            <div class="search-box">
+            <div class="search-box" style="position: relative;">
                 <input 
                     type="text" 
                     id="searchInput" 
-                    placeholder="输入股票代码或公司名称（如：AAPL, Tesla）"
+                    placeholder="Enter stock symbol or company name (e.g., AAPL, TSLA, Apple)"
                     class="search-input"
+                    autocomplete="off"
                 >
                 <button id="searchBtn" class="search-btn">
-                    <span>🔍</span> 搜索
+                    <span>🔍</span> Search
                 </button>
             </div>
-            <div id="searchResults" class="search-results"></div>
+            <div id="searchResults" class="search-results" style="position: absolute; width: 100%; z-index: 1000;"></div>
         </div>
 
-        <!-- 股票详情区域 -->
-        <div id="stockDetail" class="stock-detail" style="display: none;">
-            <!-- 价格卡片 -->
-            <div class="price-card">
-                <div class="price-header">
-                    <div class="stock-info">
-                        <h2 id="stockSymbol">AAPL</h2>
-                        <span id="stockName" class="stock-name">Apple Inc.</span>
+        <!-- Stock Detail Section -->
+        <div id="stockDetail" class="stock-detail">
+            <!-- Header Card -->
+            <div class="header-card">
+                <div class="header-content">
+                    <div>
+                        <div id="stockSymbol" class="stock-symbol">AAPL</div>
+                        <div id="stockName" class="company-name">Apple Inc.</div>
                     </div>
-                    <div class="stock-price">
+                    <div class="price-section">
+                        <button id="addToWatchlistBtn" onclick="handleAddToWatchlist()" class="btn-view" style="margin-bottom: 12px; width: 100%;">
+                            ⭐ Add to Watchlist
+                        </button>
                         <div id="currentPrice" class="current-price">$0.00</div>
                         <div id="priceChange" class="price-change">+$0.00 (+0.00%)</div>
                     </div>
                 </div>
             </div>
 
-            <!-- 分析师评级 -->
-            <div class="info-card">
-                <h3>📊 分析师评级</h3>
-                <div id="analystRatings" class="ratings-content">
-                    <div class="loading">加载中...</div>
+            <!-- Content Grid -->
+            <div class="content-grid">
+                <!-- Analyst Ratings -->
+                <div class="data-card">
+                    <h3>📊 Analyst Ratings</h3>
+                    <div id="analystRatings">
+                        <div class="no-data">Loading...</div>
+                    </div>
+                </div>
+
+                <!-- Company Profile -->
+                <div class="data-card">
+                    <h3>🏢 Company Profile</h3>
+                    <div id="companyProfile">
+                        <div class="no-data">Loading...</div>
+                    </div>
                 </div>
             </div>
 
-            <!-- 社交媒体情绪 -->
-            <div class="info-card">
-                <h3>💬 社交媒体情绪</h3>
-                <div id="socialSentiment" class="sentiment-content">
-                    <div class="loading">加载中...</div>
+            <!-- Key Metrics -->
+            <div class="data-card" style="margin-bottom: 24px;">
+                <h3>📈 Key Metrics</h3>
+                <div id="keyMetrics">
+                    <div class="no-data">Loading...</div>
                 </div>
             </div>
 
-            <!-- 关键指标 -->
-            <div class="info-card">
-                <h3>📈 关键指标</h3>
-                <div id="keyMetrics" class="metrics-grid">
-                    <div class="loading">加载中...</div>
-                </div>
-            </div>
-
-            <!-- 新闻列表 -->
-            <div class="info-card">
-                <h3>📰 最新新闻</h3>
-                <div id="newsList" class="news-content">
-                    <div class="loading">加载中...</div>
+            <!-- Earnings Data -->
+            <div class="data-card">
+                <h3>💰 Earnings Data</h3>
+                <div id="earningsData">
+                    <div class="no-data">Loading...</div>
                 </div>
             </div>
         </div>
 
-        <!-- 错误提示 -->
+        <!-- Error Section -->
         <div id="errorSection" class="error-section" style="display: none;">
             <div class="error-message">
-                <span class="error-icon">⚠️</span>
-                <span id="errorMessage">发生错误</span>
+                <span>⚠️</span>
+                <span id="errorMessage">An error occurred</span>
             </div>
-            <button onclick="retrySearch()" class="retry-btn">重试</button>
+            <button onclick="retrySearch()" class="retry-btn">Retry</button>
         </div>
 
-        <!-- 加载动画 -->
+        <!-- Loading Section -->
         <div id="loadingSection" class="loading-section" style="display: none;">
             <div class="loading-spinner"></div>
-            <p class="loading-text">正在获取数据，请稍候（约 30-60 秒）...</p>
-            <p class="loading-hint">💡 提示：首次加载需要从多个网站抓取数据</p>
-        </div>
-
-        <!-- 功能说明 -->
-        <div class="features-section">
-            <h3>✨ 功能特色</h3>
-            <div class="features-grid">
-                <div class="feature-item">
-                    <span class="feature-icon">📰</span>
-                    <h4>实时新闻</h4>
-                    <p>从 Yahoo Finance 获取最新股票新闻</p>
-                </div>
-                <div class="feature-item">
-                    <span class="feature-icon">📊</span>
-                    <h4>分析师评级</h4>
-                    <p>汇总各大投行的评级和目标价</p>
-                </div>
-                <div class="feature-item">
-                    <span class="feature-icon">💬</span>
-                    <h4>情绪分析</h4>
-                    <p>Reddit 社交媒体情绪分析</p>
-                </div>
-                <div class="feature-item">
-                    <span class="feature-icon">📈</span>
-                    <h4>关键指标</h4>
-                    <p>市值、PE、EPS 等核心财务指标</p>
-                </div>
-            </div>
-            <p class="data-note">🔍 所有数据使用 TinyFish API 实时抓取，无模拟数据</p>
+            <div class="loading-text">Fetching real-time data from Nasdaq...</div>
         </div>
     </div>
-
-    <footer class="footer">
-        <div class="container">
-            <p>数据来源：Yahoo Finance, Reddit, Google | 使用 TinyFish API 驱动</p>
-            <p>数据延迟 15 分钟 | 仅供参考，不构成投资建议</p>
-        </div>
-    </footer>
 
     <script src="/js/app.js"></script>
 </body>
