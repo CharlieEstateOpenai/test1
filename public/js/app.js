@@ -66,43 +66,54 @@ async function loadStockDetail(symbol) {
 }
 
 async function fetchPrice(symbol) {
+    console.log('Fetching price for:', symbol);
     const response = await fetch(`${API_BASE}/api/stock/${symbol}/price`);
     const data = await response.json();
+    console.log('Price API response:', data);
     return data.data || {};
 }
 
 async function fetchRatings(symbol) {
+    console.log('Fetching ratings for:', symbol);
     const response = await fetch(`${API_BASE}/api/stock/${symbol}/ratings`);
     const data = await response.json();
+    console.log('Ratings API response:', data);
     return data.data || {};
 }
 
 async function fetchSentiment(symbol) {
+    console.log('Fetching sentiment for:', symbol);
     const response = await fetch(`${API_BASE}/api/stock/${symbol}/sentiment`);
     const data = await response.json();
+    console.log('Sentiment API response:', data);
     return data.data || {};
 }
 
 async function fetchMetrics(symbol) {
+    console.log('Fetching metrics for:', symbol);
     const response = await fetch(`${API_BASE}/api/stock/${symbol}/metrics`);
     const data = await response.json();
+    console.log('Metrics API response:', data);
     return data.data || {};
 }
 
 async function fetchNews(symbol) {
+    console.log('Fetching news for:', symbol);
     const response = await fetch(`${API_BASE}/api/stock/${symbol}/news`);
     const data = await response.json();
+    console.log('News API response:', data);
     return data.data || {};
 }
 
 function displayPrice(data) {
+    console.log('Displaying price data:', data);
     document.getElementById('stockSymbol').textContent = data.symbol || currentSymbol;
-    document.getElementById('stockName').textContent = 'Stock';
+    document.getElementById('stockName').textContent = data.company_name || 'Stock';
     
     const currentPrice = document.getElementById('currentPrice');
     const priceChange = document.getElementById('priceChange');
     
-    if (data.price) {
+    if (data.price && typeof data.price === 'number') {
         currentPrice.textContent = `$${data.price.toFixed(2)}`;
         
         const change = data.change || 0;
@@ -113,9 +124,14 @@ function displayPrice(data) {
         priceChange.className = `price-change ${isPositive ? '' : 'negative'}`;
         currentPrice.style.color = isPositive ? '#2ecc71' : '#e74c3c';
         priceChange.style.color = isPositive ? '#2ecc71' : '#e74c3c';
+    } else if (data.current_price && typeof data.current_price === 'number') {
+        // 尝试备用字段
+        currentPrice.textContent = `$${data.current_price.toFixed(2)}`;
+        priceChange.textContent = '数据加载中...';
     } else {
-        currentPrice.textContent = 'N/A';
-        priceChange.textContent = '';
+        console.warn('No valid price data found');
+        currentPrice.textContent = '$0.00';
+        priceChange.textContent = '$0.00 (0.00%)';
     }
 }
 
