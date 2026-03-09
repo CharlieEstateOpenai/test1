@@ -649,33 +649,53 @@ async function loadSessions() {
         const statusClass = latestSession.status === 'COMPLETED' ? 'completed' : 
                            latestSession.status === 'RUNNING' ? 'running' : 'failed';
         
-        mainViz.innerHTML = `
-            <iframe 
-                src="${latestSession.stream_url}" 
-                title="TinyFish API 调取画面可视化展示"
-                width="100%" 
-                height="800" 
-                frameborder="0"
-                allowfullscreen
-            ></iframe>
-            <div class="session-info" style="padding: 20px; background: #f8f9fa; border-top: 2px solid #e0e0e0;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <h4 style="margin: 0; color: #333; font-size: 1.1rem;">
-                        🔴 实时会话：${latestSession.run_id}
-                    </h4>
-                    <span class="session-status ${statusClass}">${latestSession.status || 'Unknown'}</span>
+        // 使用 streamingUrl 显示实时浏览器画面（根据 TinyFish 文档）
+        const displayUrl = latestSession.streamingUrl;
+        
+        if (!displayUrl) {
+            mainViz.innerHTML = `
+                <div class="no-sessions">
+                    <p>⚠️ 未找到 streamingUrl</p>
+                    <p style="margin-top: 10px; font-size: 0.9rem;">
+                        Run ID: ${latestSession.run_id}<br>
+                        Status: ${latestSession.status}<br>
+                        请检查 API 返回是否包含 streamingUrl 字段
+                    </p>
                 </div>
-                <div style="font-size: 0.9rem; color: #666; line-height: 1.6;">
-                    <div><strong>目标 URL:</strong> ${latestSession.url}</div>
-                    <div><strong>开始时间:</strong> ${latestSession.started_at ? new Date(latestSession.started_at).toLocaleString('zh-CN') : 'N/A'}</div>
-                    ${latestSession.finished_at ? `<div><strong>完成时间:</strong> ${new Date(latestSession.finished_at).toLocaleString('zh-CN')}</div>` : ''}
-                    <div style="margin-top: 10px; padding: 10px; background: #e3f2fd; border-radius: 6px;">
-                        <strong>Stream URL:</strong><br>
-                        <code style="font-size: 0.85rem; word-break: break-all;">${latestSession.stream_url}</code>
+            `;
+        } else {
+            mainViz.innerHTML = `
+                <iframe 
+                    src="${displayUrl}" 
+                    title="TinyFish API 调取画面可视化展示"
+                    width="100%" 
+                    height="800" 
+                    frameborder="0"
+                    allowfullscreen
+                ></iframe>
+                <div class="session-info" style="padding: 20px; background: #f8f9fa; border-top: 2px solid #e0e0e0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h4 style="margin: 0; color: #333; font-size: 1.1rem;">
+                            🔴 实时会话：${latestSession.run_id}
+                        </h4>
+                        <span class="session-status ${statusClass}">${latestSession.status || 'Unknown'}</span>
+                    </div>
+                    <div style="font-size: 0.9rem; color: #666; line-height: 1.6;">
+                        <div><strong>目标 URL:</strong> ${latestSession.url}</div>
+                        <div><strong>开始时间:</strong> ${latestSession.started_at ? new Date(latestSession.started_at).toLocaleString('zh-CN') : 'N/A'}</div>
+                        ${latestSession.finished_at ? `<div><strong>完成时间:</strong> ${new Date(latestSession.finished_at).toLocaleString('zh-CN')}</div>` : ''}
+                        <div style="margin-top: 10px; padding: 10px; background: #e3f2fd; border-radius: 6px;">
+                            <strong>Streaming URL (实时浏览器画面):</strong><br>
+                            <code style="font-size: 0.85rem; word-break: break-all;">${displayUrl}</code>
+                        </div>
+                        <div style="margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 6px; border-left: 4px solid #ffc107;">
+                            <strong>ℹ️ 注意:</strong><br>
+                            streamingUrl 有效期为运行完成后 24 小时
+                        </div>
                     </div>
                 </div>
-            </div>
-        `;
+            `;
+        }
         
         // 历史会话列表
         container.innerHTML = data.sessions.slice(1).map(session => {

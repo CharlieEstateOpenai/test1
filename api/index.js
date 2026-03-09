@@ -29,7 +29,8 @@ async function callTinyFish(url, goal, timeout = 90000) {
     goal: goal,
     status: 'RUNNING',
     started_at: new Date().toISOString(),
-    stream_url: `https://agent.tinyfish.ai/v1/automation/${tempRunId}/stream`
+    stream_url: `https://agent.tinyfish.ai/v1/automation/${tempRunId}/stream`,
+    view_url: `https://agent.tinyfish.ai/v1/automation/${tempRunId}/view`
   };
   
   console.log('💾 Session created (pending):', tempRunId);
@@ -49,7 +50,12 @@ async function callTinyFish(url, goal, timeout = 90000) {
       },
       body: JSON.stringify({ 
         url: url,
-        goal: goal
+        goal: goal,
+        // 请求返回浏览器画面和截图
+        options: {
+          capture_screenshots: true,
+          capture_interval: 2000
+        }
       }),
       signal: controller.signal
     });
@@ -76,7 +82,14 @@ async function callTinyFish(url, goal, timeout = 90000) {
       sessionInfo.run_id = result.run_id;
       sessionInfo.status = result.status;
       sessionInfo.finished_at = result.finished_at;
-      sessionInfo.stream_url = `https://agent.tinyfish.ai/v1/automation/${result.run_id}/stream`;
+      
+      // 关键：使用 streamingUrl 而不是之前的 stream_url
+      // streamingUrl 格式：https://tf-abc123.fra0-tinyfish.unikraft.app/stream/0
+      if (result.streamingUrl) {
+        sessionInfo.streamingUrl = result.streamingUrl;
+        console.log('💾 Session streamingUrl:', result.streamingUrl);
+      }
+      
       console.log('💾 Session updated:', result.run_id);
     } else {
       sessionInfo.status = 'COMPLETED';
