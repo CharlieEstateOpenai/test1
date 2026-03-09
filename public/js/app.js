@@ -626,3 +626,56 @@ function navigateTo(page) {
         activeLink.classList.add('active');
     }
 }
+
+// Load TinyFish Sessions
+async function loadSessions() {
+    try {
+        const response = await fetch(`${API_BASE}/api/sessions`);
+        const data = await response.json();
+        
+        const container = document.getElementById('sessionsContainer');
+        
+        if (!data.sessions || data.sessions.length === 0) {
+            container.innerHTML = '<div class="no-sessions">No active sessions. Search for a stock to start a session.</div>';
+            return;
+        }
+        
+        container.innerHTML = data.sessions.map(session => {
+            const statusClass = session.status === 'COMPLETED' ? 'completed' : 
+                               session.status === 'RUNNING' ? 'running' : 'failed';
+            
+            return `
+                <div class="session-card">
+                    <iframe 
+                        src="${session.stream_url}" 
+                        class="session-iframe"
+                        title="TinyFish Session ${session.run_id}"
+                        allow="fullscreen"
+                    ></iframe>
+                    <div class="session-info">
+                        <div class="session-id">
+                            <strong>Run ID:</strong> ${session.run_id}
+                        </div>
+                        <div style="margin-top: 8px; display: flex; justify-content: space-between; align-items: center;">
+                            <span class="session-status ${statusClass}">${session.status || 'Unknown'}</span>
+                            <span style="font-size: 0.85rem; color: #666;">
+                                ${session.started_at ? new Date(session.started_at).toLocaleTimeString() : 'N/A'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error('Error loading sessions:', error);
+        const container = document.getElementById('sessionsContainer');
+        container.innerHTML = '<div class="no-sessions">Failed to load sessions</div>';
+    }
+}
+
+// Auto-load sessions on page load
+window.addEventListener('DOMContentLoaded', () => {
+    // Load sessions every 10 seconds
+    loadSessions();
+    setInterval(loadSessions, 10000);
+});

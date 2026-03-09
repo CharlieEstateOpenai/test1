@@ -110,6 +110,19 @@
             <div class="loading-spinner"></div>
             <div class="loading-text">Fetching real-time data from Nasdaq...</div>
         </div>
+        
+        <!-- TinyFish Live Sessions Section -->
+        <div class="sessions-section" style="margin-top: 40px;">
+            <div class="sessions-header">
+                <h2>🔴 Live TinyFish Sessions</h2>
+                <button id="refreshSessionsBtn" onclick="loadSessions()" class="btn-refresh">
+                    🔄 Refresh
+                </button>
+            </div>
+            <div id="sessionsContainer" class="sessions-container">
+                <div class="no-sessions">No active sessions. Search for a stock to start a session.</div>
+            </div>
+        </div>
     </div>
 
     <script src="/js/app.js"></script>

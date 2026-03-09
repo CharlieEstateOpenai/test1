@@ -4,6 +4,10 @@
 const cache = new Map();
 const CACHE_TTL = 10 * 60 * 1000; // 10 分钟缓存
 
+// 保存最近的 TinyFish 会话信息
+const recentSessions = [];
+const MAX_SESSIONS = 10;
+
 async function callTinyFish(url, goal, timeout = 90000) {
   const apiKey = process.env.TINYFISH_API_KEY || "sk-tinyfish-jrNPRJUhx20YD6Ozc5sRefmtsdC1MPMu";
   
@@ -51,6 +55,27 @@ async function callTinyFish(url, goal, timeout = 90000) {
 
     const result = JSON.parse(text);
     console.log('✅ Success');
+    
+    // 保存会话信息
+    if (result.run_id) {
+      const sessionInfo = {
+        run_id: result.run_id,
+        url: url,
+        goal: goal,
+        status: result.status,
+        started_at: result.started_at,
+        finished_at: result.finished_at,
+        stream_url: `https://agent.tinyfish.ai/v1/automation/${result.run_id}/stream`
+      };
+      
+      recentSessions.unshift(sessionInfo);
+      if (recentSessions.length > MAX_SESSIONS) {
+        recentSessions.pop();
+      }
+      
+      console.log('💾 Session saved:', result.run_id);
+    }
+    
     return result;
   } catch (error) {
     clearTimeout(timeoutId);
@@ -515,8 +540,19 @@ module.exports = async function handler(req, res) {
         'Simple Price Lookup',
         'Social Media Sentiment (Reddit)',
         'Key Metrics',
-        'Stock Search'
+        'Stock Search',
+        'Live Sessions (iframe)'
       ]
+    });
+    return;
+  }
+  
+  // 获取最近的 TinyFish 会话列表
+  if (pathname === '/api/sessions' && method === 'GET') {
+    res.status(200).json({
+      sessions: recentSessions,
+      count: recentSessions.length,
+      timestamp: new Date().toISOString()
     });
     return;
   }
