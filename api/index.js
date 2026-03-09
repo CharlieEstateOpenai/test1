@@ -19,6 +19,21 @@ async function callTinyFish(url, goal, timeout = 90000) {
     throw new Error("TINYFISH_API_KEY not configured");
   }
 
+  // 生成临时 run_id
+  const tempRunId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  // 立即创建会话记录
+  const sessionInfo = {
+    run_id: tempRunId,
+    url: url,
+    goal: goal,
+    status: 'RUNNING',
+    started_at: new Date().toISOString(),
+    stream_url: `https://agent.tinyfish.ai/v1/automation/${tempRunId}/stream`
+  };
+  
+  console.log('💾 Session created (pending):', tempRunId);
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => {
     console.log('⏰ Timeout');
@@ -56,30 +71,42 @@ async function callTinyFish(url, goal, timeout = 90000) {
     const result = JSON.parse(text);
     console.log('✅ Success');
     
-    // 保存会话信息
+    // 更新会话信息
     if (result.run_id) {
-      const sessionInfo = {
-        run_id: result.run_id,
-        url: url,
-        goal: goal,
-        status: result.status,
-        started_at: result.started_at,
-        finished_at: result.finished_at,
-        stream_url: `https://agent.tinyfish.ai/v1/automation/${result.run_id}/stream`
-      };
-      
-      recentSessions.unshift(sessionInfo);
-      if (recentSessions.length > MAX_SESSIONS) {
-        recentSessions.pop();
-      }
-      
-      console.log('💾 Session saved:', result.run_id);
+      sessionInfo.run_id = result.run_id;
+      sessionInfo.status = result.status;
+      sessionInfo.finished_at = result.finished_at;
+      sessionInfo.stream_url = `https://agent.tinyfish.ai/v1/automation/${result.run_id}/stream`;
+      console.log('💾 Session updated:', result.run_id);
+    } else {
+      sessionInfo.status = 'COMPLETED';
+      sessionInfo.finished_at = new Date().toISOString();
+    }
+    
+    // 保存到会话列表
+    recentSessions.unshift(sessionInfo);
+    if (recentSessions.length > MAX_SESSIONS) {
+      recentSessions.pop();
     }
     
     return result;
   } catch (error) {
     clearTimeout(timeoutId);
     console.error('❌ Error:', error.message);
+    
+    // 即使失败也保存会话
+    sessionInfo.status = 'FAILED';
+    sessionInfo.finished_at = new Date().toISOString();
+    sessionInfo.error = error.message;
+    
+    // 保存到会话列表（即使失败）
+    recentSessions.unshift(sessionInfo);
+    if (recentSessions.length > MAX_SESSIONS) {
+      recentSessions.pop();
+    }
+    
+    console.log('💾 Session saved (failed):', tempRunId);
+    
     if (error.name === 'AbortError') {
       throw new Error(`Timeout after ${timeout}ms`);
     }
