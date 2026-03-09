@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Sessions</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .btn {
+            padding: 10px 20px;
+            background: #0066cc;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        .btn:hover {
+            background: #0052a3;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .session-card {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .session-iframe {
+            width: 100%;
+            height: 400px;
+            border: 2px solid #0066cc;
+            border-radius: 4px;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin: 5px 0;
+        }
+        .status.COMPLETED { background: #10b981; color: white; }
+        .status.RUNNING { background: #f59e0b; color: white; }
+        .status.FAILED { background: #ef4444; color: white; }
+        .error {
+            color: #dc2626;
+            font-weight: 600;
+        }
+        .success {
+            color: #16a34a;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 TinyFish Sessions Debug Panel</h1>
+    
+    <div class="card">
+        <h2>1. Test API Endpoint</h2>
+        <button class="btn" onclick="testAPI()">📡 Test /api/sessions</button>
+        <div id="apiResult" style="margin-top: 15px;"></div>
+    </div>
+    
+    <div class="card">
+        <h2>2. Create Test Session</h2>
+        <button class="btn" onclick="createTestSession()">🚀 Search for AAPL</button>
+        <div id="testResult" style="margin-top: 15px;"></div>
+    </div>
+    
+    <div class="card">
+        <h2>3. Display Sessions with iframes</h2>
+        <button class="btn" onclick="displaySessions()">📺 Display All Sessions</button>
+        <div id="sessionsDisplay" style="margin-top: 15px;"></div>
+    </div>
+    
+    <div class="card">
+        <h2>4. Raw Session Data</h2>
+        <button class="btn" onclick="showRawData()">📋 Show Raw JSON</button>
+        <pre id="rawData">Click button to see raw data</pre>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        let sessionsData = null;
+
+        async function testAPI() {
+            const resultDiv = document.getElementById('apiResult');
+            resultDiv.innerHTML = '<p>Testing API...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/sessions`);
+                const data = await response.json();
+                sessionsData = data;
+                
+                resultDiv.innerHTML = `
+                    <p class="success">✅ API Response Success!</p>
+                    <p><strong>Status:</strong> ${response.status}</p>
+                    <p><strong>Session Count:</strong> ${data.count || 0}</p>
+                    <p><strong>Timestamp:</strong> ${data.timestamp || 'N/A'}</p>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function createTestSession() {
+            const resultDiv = document.getElementById('testResult');
+            resultDiv.innerHTML = '<p>Creating test session by searching AAPL...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/stock/AAPL/price`);
+                const data = await response.json();
+                
+                resultDiv.innerHTML = `
+                    <p class="success">✅ Test session created!</p>
+                    <p><strong>Symbol:</strong> AAPL</p>
+                    <p><strong>Price:</strong> ${data.data?.price || 'N/A'}</p>
+                    <p style="margin-top: 10px;">Now click "Display All Sessions" to see the iframe</p>
+                `;
+                
+                // Wait a bit then refresh sessions
+                setTimeout(() => {
+                    displaySessions();
+                }, 2000);
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        function displaySessions() {
+            const displayDiv = document.getElementById('sessionsDisplay');
+            
+            if (!sessionsData || !sessionsData.sessions || sessionsData.sessions.length === 0) {
+                displayDiv.innerHTML = '<p>No sessions to display. Click "Test API" first.</p>';
+                return;
+            }
+            
+            displayDiv.innerHTML = sessionsData.sessions.map(session => `
+                <div class="session-card">
+                    <h3>Session: ${session.run_id}</h3>
+                    <span class="status ${session.status}">${session.status || 'Unknown'}</span>
+                    <p><strong>URL:</strong> ${session.url}</p>
+                    <p><strong>Started:</strong> ${session.started_at ? new Date(session.started_at).toLocaleString() : 'N/A'}</p>
+                    <p><strong>Stream URL:</strong> <a href="${session.stream_url}" target="_blank">${session.stream_url}</a></p>
+                    <iframe 
+                        src="${session.stream_url}" 
+                        class="session-iframe"
+                        title="Session ${session.run_id}"
+                    ></iframe>
+                </div>
+            `).join('');
+        }
+
+        function showRawData() {
+            const pre = document.getElementById('rawData');
+            if (sessionsData) {
+                pre.textContent = JSON.stringify(sessionsData, null, 2);
+            } else {
+                pre.textContent = 'No data available. Click "Test API" first.';
+            }
+        }
+
+        // Auto-test on load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                testAPI();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
