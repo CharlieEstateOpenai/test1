@@ -113,6 +113,13 @@ async function loadStockDetail(symbol) {
     showLoading();
     
     try {
+        // 1. 立即显示实时浏览器画面（等待状态）
+        showLiveBrowserView('🚀 Starting TinyFish Browser...', 'Preparing to call API for stock data...');
+        
+        // 2. 先调用 TinyFish API 获取实时数据并获取 streaming_url
+        const tinyFishPromise = callTinyFishForStock(currentSymbol);
+        
+        // 3. 同时获取其他数据
         const [priceData, ratingsData, profileData, metricsData, earningsData] = await Promise.all([
             fetchPrice(currentSymbol),
             fetchRatings(currentSymbol),
@@ -129,9 +136,50 @@ async function loadStockDetail(symbol) {
         
         document.getElementById('stockDetail').style.display = 'block';
         hideLoading();
+        
+        // 4. 等待 TinyFish 完成后刷新会话列表
+        await tinyFishPromise;
+        await loadSessions();
+        
     } catch (error) {
         console.error('Load detail error:', error);
         showError('Failed to load data. Please try again.');
+    }
+}
+
+// 显示实时浏览器画面
+function showLiveBrowserView(title, message) {
+    const liveBrowserView = document.getElementById('liveBrowserView');
+    if (liveBrowserView) {
+        const timestamp = new Date().toLocaleTimeString('en-US');
+        liveBrowserView.innerHTML = `
+            <div class="loading-browser" style="padding: 40px; text-align: center; background: #f8f9fa; border-radius: 12px; border: 2px dashed #dee2e6;">
+                <div class="spinner" style="width: 40px; height: 40px; border: 4px solid #e9ecef; border-top-color: #667eea; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px;"></div>
+                <p style="color: #6c757d; font-weight: bold;">${title}</p>
+                <p style="font-size: 0.85rem; color: #adb5bd; margin-top: 5px;">${message}</p>
+                <p style="font-size: 0.75rem; color: #ced4da; margin-top: 10px;">🕐 ${timestamp}</p>
+            </div>
+        `;
+    }
+}
+
+// 调用 TinyFish API 获取股票数据
+async function callTinyFishForStock(symbol) {
+    try {
+        console.log(`🚀 Calling TinyFish for ${symbol}...`);
+        
+        const response = await fetch(`${API_BASE}/api/stock/${symbol}/price`);
+        const data = await response.json();
+        
+        console.log('TinyFish response:', data);
+        
+        // 等待一小段时间让 API 保存会话
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        return data;
+    } catch (error) {
+        console.error('TinyFish call error:', error);
+        return null;
     }
 }
 
@@ -392,43 +440,6 @@ function displayEarnings(data) {
     container.innerHTML = html || '<div class="no-data">No earnings data available</div>';
 }
 
-function displaySentiment(data) {
-    const container = document.getElementById('socialSentiment');
-    
-    if (data.error || (!data.posts || data.posts.length === 0)) {
-        container.innerHTML = '<div class="no-data">No social sentiment data available</div>';
-        return;
-    }
-    
-    const sentimentClass = data.sentiment_label === 'Positive' ? 'sentiment-positive' :
-                          data.sentiment_label === 'Negative' ? 'sentiment-negative' : 'sentiment-neutral';
-    
-    let html = `
-        <div class="sentiment-summary">
-            <span class="sentiment-badge ${sentimentClass}">${data.sentiment_label}</span>
-            <span class="sentiment-score">Score: ${data.sentiment_score?.toFixed(2) || '0.00'}</span>
-        </div>
-    `;
-    
-    if (data.posts && data.posts.length > 0) {
-        html += '<div class="social-posts">';
-        data.posts.forEach(post => {
-            html += `
-                <div class="post-item">
-                    <div class="post-title">${post.title || post.headline || 'No title'}</div>
-                    <div class="post-meta">
-                        ${post.upvotes !== undefined ? `<span>👍 ${post.upvotes}</span>` : ''}
-                        ${post.comments !== undefined ? `<span>💬 ${post.comments}</span>` : ''}
-                    </div>
-                </div>
-            `;
-        });
-        html += '</div>';
-    }
-    
-    container.innerHTML = html || '<div class="no-data">No social sentiment data available</div>';
-}
-
 function displayMetrics(data) {
     const container = document.getElementById('keyMetrics');
     
@@ -520,34 +531,6 @@ function displayMetrics(data) {
     }
 }
 
-function displayNews(data) {
-    const container = document.getElementById('newsList');
-    
-    if (data.error || (!data.news || data.news.length === 0)) {
-        container.innerHTML = '<div class="no-data">No recent news available</div>';
-        return;
-    }
-    
-    let html = '<div class="news-list">';
-    
-    data.news.forEach((item, index) => {
-        html += `
-            <div class="news-item">
-                <h4 class="news-headline">${item.headline || item.title || 'No title'}</h4>
-                <div class="news-meta">
-                    <span class="news-source">${item.source || 'Unknown'}</span>
-                    <span class="news-date">${item.date || item.time_published || 'Unknown'}</span>
-                </div>
-                ${item.summary ? `<p class="news-summary">${item.summary}</p>` : ''}
-                ${item.url ? `<a href="${item.url}" target="_blank" class="news-link">Read more →</a>` : ''}
-            </div>
-        `;
-    });
-    
-    html += '</div>';
-    container.innerHTML = html || '<div class="no-data">No recent news available</div>';
-}
-
 function showLoading() {
     document.getElementById('loadingSection').style.display = 'block';
     document.getElementById('errorSection').style.display = 'none';
@@ -628,118 +611,117 @@ function navigateTo(page) {
 }
 
 // Load TinyFish Sessions
+let pollingTimer = null;
+
 async function loadSessions() {
     try {
         const response = await fetch(`${API_BASE}/api/sessions`);
         const data = await response.json();
         
-        const container = document.getElementById('sessionsContainer');
-        const mainViz = document.getElementById('mainVisualization');
+        const liveBrowserView = document.getElementById('liveBrowserView');
         
         if (!data.sessions || data.sessions.length === 0) {
-            container.innerHTML = '<div class="no-sessions">No active sessions. Search for a stock to start a session.</div>';
-            mainViz.innerHTML = '<div class="no-sessions">正在加载可视化画面...</div>';
+            if (liveBrowserView) {
+                liveBrowserView.innerHTML = `
+                    <div class="loading-browser" style="padding: 40px; text-align: center; background: #f8f9fa; border-radius: 12px; border: 2px dashed #dee2e6;">
+                        <p style="color: #6c757d;">等待会话数据...</p>
+                    </div>
+                `;
+            }
             return;
         }
         
-        // 获取最新的会话（第一个）
-        const latestSession = data.sessions[0];
-        
-        // 主可视化区域 - 显示最新会话的大 iframe
-        const statusClass = latestSession.status === 'COMPLETED' ? 'completed' : 
-                           latestSession.status === 'RUNNING' ? 'running' : 'failed';
-        
-        // 使用 streamingUrl 显示实时浏览器画面（根据 TinyFish 文档）
-        const displayUrl = latestSession.streamingUrl;
-        
-        if (!displayUrl) {
-            mainViz.innerHTML = `
-                <div class="no-sessions">
-                    <p>⚠️ 未找到 streamingUrl</p>
-                    <p style="margin-top: 10px; font-size: 0.9rem;">
-                        Run ID: ${latestSession.run_id}<br>
-                        Status: ${latestSession.status}<br>
-                        请检查 API 返回是否包含 streamingUrl 字段
-                    </p>
-                </div>
-            `;
-        } else {
-            mainViz.innerHTML = `
-                <iframe 
-                    src="${displayUrl}" 
-                    title="TinyFish API 调取画面可视化展示"
-                    width="100%" 
-                    height="800" 
-                    frameborder="0"
-                    allowfullscreen
-                ></iframe>
-                <div class="session-info" style="padding: 20px; background: #f8f9fa; border-top: 2px solid #e0e0e0;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <h4 style="margin: 0; color: #333; font-size: 1.1rem;">
-                            🔴 实时会话：${latestSession.run_id}
-                        </h4>
-                        <span class="session-status ${statusClass}">${latestSession.status || 'Unknown'}</span>
-                    </div>
-                    <div style="font-size: 0.9rem; color: #666; line-height: 1.6;">
-                        <div><strong>目标 URL:</strong> ${latestSession.url}</div>
-                        <div><strong>开始时间:</strong> ${latestSession.started_at ? new Date(latestSession.started_at).toLocaleString('zh-CN') : 'N/A'}</div>
-                        ${latestSession.finished_at ? `<div><strong>完成时间:</strong> ${new Date(latestSession.finished_at).toLocaleString('zh-CN')}</div>` : ''}
-                        <div style="margin-top: 10px; padding: 10px; background: #e3f2fd; border-radius: 6px;">
-                            <strong>Streaming URL (实时浏览器画面):</strong><br>
-                            <code style="font-size: 0.85rem; word-break: break-all;">${displayUrl}</code>
-                        </div>
-                        <div style="margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 6px; border-left: 4px solid #ffc107;">
-                            <strong>ℹ️ 注意:</strong><br>
-                            streamingUrl 有效期为运行完成后 24 小时
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-        
-        // 历史会话列表
-        container.innerHTML = data.sessions.slice(1).map(session => {
-            const statusClass = session.status === 'COMPLETED' ? 'completed' : 
-                               session.status === 'RUNNING' ? 'running' : 'failed';
+        // 显示所有会话的实时画面
+        if (liveBrowserView) {
+            // 显示所有会话（包括失败的）
+            const allSessions = data.sessions;
             
-            return `
-                <div class="session-card">
-                    <iframe 
-                        src="${session.stream_url}" 
-                        class="session-iframe"
-                        title="TinyFish Session ${session.run_id}"
-                        allow="fullscreen"
-                    ></iframe>
-                    <div class="session-info">
-                        <div class="session-id">
-                            <strong>Run ID:</strong> ${session.run_id}
-                        </div>
-                        <div style="margin-top: 8px; display: flex; justify-content: space-between; align-items: center;">
-                            <span class="session-status ${statusClass}">${session.status || 'Unknown'}</span>
-                            <span style="font-size: 0.85rem; color: #666;">
-                                ${session.started_at ? new Date(session.started_at).toLocaleTimeString() : 'N/A'}
-                            </span>
-                        </div>
+            if (allSessions.length === 0) {
+                // 没有会话，显示等待状态
+                liveBrowserView.innerHTML = `
+                    <div class="loading-browser" style="padding: 40px; text-align: center; background: #f8f9fa; border-radius: 12px; border: 2px dashed #dee2e6;">
+                        <p style="color: #6c757d;">Waiting for session data...</p>
                     </div>
-                </div>
-            `;
-        }).join('');
-        
-        if (data.sessions.length === 1) {
-            container.innerHTML = '<div class="no-sessions">只有一个会话（显示在上方主可视化区域）</div>';
+                `;
+            } else {
+                // 显示所有会话的 iframe（即使失败）
+                let allSessionsHtml = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 15px;">';
+                
+                allSessions.forEach((session, index) => {
+                    // 使用原始 URL 或 current_url
+                    const displayUrl = session.current_url || session.url;
+                    const statusClass = session.status === 'COMPLETED' ? 'completed' : 
+                                       session.status === 'RUNNING' ? 'running' : 'failed';
+                    
+                    allSessionsHtml += `
+                        <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                            <div style="padding: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="flex: 1;">
+                                        <strong style="font-size: 0.9rem;">🔴 Session ${index + 1}</strong>
+                                        <div style="font-size: 0.75rem; opacity: 0.9; margin-top: 2px; word-break: break-all;">
+                                            ${session.run_id}
+                                        </div>
+                                    </div>
+                                    <span class="session-status ${statusClass}" style="background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: bold;">
+                                        ${session.status || 'Unknown'}
+                                    </span>
+                                </div>
+                            </div>
+                            <iframe 
+                                src="${displayUrl}" 
+                                title="TinyFish Session ${session.run_id}"
+                                width="100%" 
+                                height="350" 
+                                frameborder="0"
+                                allowfullscreen
+                                style="display: block; background: #000;"
+                                sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                            ></iframe>
+                            <div style="padding: 8px; background: #f8f9fa; font-size: 0.75rem; color: #555;">
+                                <div style="margin-bottom: 4px;"><strong>📍 URL:</strong></div>
+                                <div style="word-break: break-all; font-family: monospace; background: #fff; padding: 4px; border-radius: 3px; font-size: 0.7rem; margin-bottom: 4px;">${displayUrl}</div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span>${session.started_at ? new Date(session.started_at).toLocaleTimeString('en-US') : 'N/A'}</span>
+                                    ${session.status === 'FAILED' && session.error ? `<span style="color: #dc3545;" title="${session.error.substring(0, 100)}">⚠️ Failed</span>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                allSessionsHtml += '</div>';
+                
+                // 添加提示信息
+                allSessionsHtml += `
+                    <div style="margin-top: 15px; padding: 12px; background: #e3f2fd; border-radius: 12px; border-left: 4px solid #2196f3;">
+                        <strong style="color: #1976d2;">📊 Total ${allSessions.length} active sessions</strong>
+                        <p style="margin: 5px 0 0 0; font-size: 0.8rem; color: #555;">
+                            Each iframe displays the page TinyFish is visiting. Even failed sessions will show the original URL.
+                        </p>
+                    </div>
+                `;
+                
+                liveBrowserView.innerHTML = allSessionsHtml;
+            }
         }
     } catch (error) {
         console.error('Error loading sessions:', error);
-        const container = document.getElementById('sessionsContainer');
-        const mainViz = document.getElementById('mainVisualization');
-        container.innerHTML = '<div class="no-sessions">Failed to load sessions</div>';
-        mainViz.innerHTML = '<div class="no-sessions">加载可视化画面失败</div>';
+        const liveBrowserView = document.getElementById('liveBrowserView');
+        if (liveBrowserView) {
+            liveBrowserView.innerHTML = `
+                <div class="loading-browser" style="padding: 40px; text-align: center; background: #f8f9fa; border-radius: 12px; border: 2px dashed #dee2e6;">
+                    <p style="color: #dc3545; font-weight: bold;">❌ 加载失败</p>
+                    <p style="font-size: 0.85rem; color: #6c757d;">${error.message}</p>
+                </div>
+            `;
+        }
     }
 }
 
 // Auto-load sessions on page load
 window.addEventListener('DOMContentLoaded', () => {
-    // Load sessions every 10 seconds
+    // Load sessions every 3 seconds for more real-time updates
     loadSessions();
-    setInterval(loadSessions, 10000);
+    setInterval(loadSessions, 3000);
 });

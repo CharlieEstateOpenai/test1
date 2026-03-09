@@ -8,6 +8,72 @@ const CACHE_TTL = 10 * 60 * 1000; // 10 分钟缓存
 const recentSessions = [];
 const MAX_SESSIONS = 10;
 
+// 股票数据 URL 列表 - 包含国内外所有网站，按优先级排序
+const STOCK_URLS = [
+  // 国内网站（优先，适合中国大陆用户）
+  {
+    name: '东方财富',
+    url: (symbol) => `https://quote.eastmoney.com/${symbol.toLowerCase()}.html`,
+    goal: (symbol) => `Find the current stock price, price change, and percentage change for ${symbol}. Return JSON: {"symbol":"${symbol}","price":0.00,"change":0.00,"change_percent":0.00,"currency":"USD"}`
+  },
+  {
+    name: '新浪财经',
+    url: (symbol) => `https://finance.sina.com.cn/stock/quote/${symbol.toLowerCase()}.shtml`,
+    goal: (symbol) => `Find the current stock price and trading volume for ${symbol}. Return JSON: {"symbol":"${symbol}","price":0.00,"change":0.00,"change_percent":0.00}`
+  },
+  {
+    name: '雪球',
+    url: (symbol) => `https://xueqiu.com/s/${symbol}`,
+    goal: (symbol) => `Find the current stock price and market cap for ${symbol}. Return JSON: {"symbol":"${symbol}","price":0.00,"market_cap":"000B"}`
+  },
+  {
+    name: '腾讯自选股',
+    url: (symbol) => `https://stockapp.finance.qq.com/mstats/?id=${symbol.toLowerCase()}`,
+    goal: (symbol) => `Find the current stock price for ${symbol}. Return JSON: {"symbol":"${symbol}","price":0.00}`
+  },
+  // 国外网站（适合美国/国际用户）
+  {
+    name: 'Yahoo Finance',
+    url: (symbol) => `https://finance.yahoo.com/quote/${symbol}`,
+    goal: (symbol) => `Find the current stock price, price change, and percentage change for ${symbol}`
+  },
+  {
+    name: 'TradingView',
+    url: (symbol) => `https://www.tradingview.com/symbols/${symbol}/`,
+    goal: (symbol) => `Find the current stock price and analyst ratings for ${symbol}`
+  },
+  {
+    name: 'StockAnalysis',
+    url: (symbol) => `https://stockanalysis.com/stocks/${symbol.toLowerCase()}/`,
+    goal: (symbol) => `Find the current stock price and company information for ${symbol}`
+  },
+  {
+    name: 'Finviz',
+    url: (symbol) => `https://finviz.com/quote.ashx?t=${symbol}`,
+    goal: (symbol) => `Find the current stock price, P/E ratio, market cap, and other key metrics for ${symbol}`
+  },
+  {
+    name: 'Google Finance',
+    url: (symbol) => `https://www.google.com/finance/quote/${symbol}:NASDAQ`,
+    goal: (symbol) => `Find the current stock price for ${symbol}. Return JSON: {"symbol":"${symbol}","price":0.00,"change":0.00,"change_percent":0.00}`
+  },
+  {
+    name: 'MarketWatch',
+    url: (symbol) => `https://www.marketwatch.com/investing/stock/${symbol.toLowerCase()}`,
+    goal: (symbol) => `Find the current stock price and market data for ${symbol}`
+  },
+  {
+    name: 'CNBC',
+    url: (symbol) => `https://www.cnbc.com/quotes/${symbol}`,
+    goal: (symbol) => `Find the current stock price and news for ${symbol}`
+  },
+  {
+    name: 'Bloomberg',
+    url: (symbol) => `https://www.bloomberg.com/quote/${symbol}:US`,
+    goal: (symbol) => `Find the current stock price and market analysis for ${symbol}`
+  }
+];
+
 async function callTinyFish(url, goal, timeout = 90000) {
   const apiKey = process.env.TINYFISH_API_KEY || "sk-tinyfish-jrNPRJUhx20YD6Ozc5sRefmtsdC1MPMu";
   
@@ -29,7 +95,7 @@ async function callTinyFish(url, goal, timeout = 90000) {
     goal: goal,
     status: 'RUNNING',
     started_at: new Date().toISOString(),
-    streamingUrl: null  // 初始为 null，等待 API 返回
+    current_url: url  // 初始化为请求的 URL
   };
   
   console.log('💾 Session created (pending):', tempRunId);
@@ -41,7 +107,10 @@ async function callTinyFish(url, goal, timeout = 90000) {
   }, timeout);
 
   try {
-    const response = await fetch('https://agent.tinyfish.ai/v1/automation/run', {
+    console.log('🚀 Calling TinyFish API...');
+    
+    // 使用 run_async endpoint 立即获得 run_id 和 streaming_url
+    const response = await fetch('https://agent.tinyfish.ai/v1/run-async', {
       method: "POST",
       headers: {
         "X-API-Key": apiKey,
@@ -55,16 +124,49 @@ async function callTinyFish(url, goal, timeout = 90000) {
     });
 
     clearTimeout(timeoutId);
-    console.log('Status:', response.status);
+    console.log('📡 Response status:', response.status);
 
     const text = await response.text();
     
     if (!response.ok) {
-      console.error('Error:', response.status, text.substring(0, 300));
-      throw new Error(`TinyFish error ${response.status}`);
+      console.error('❌ TinyFish API Error:', response.status);
+      console.error('Response:', text.substring(0, 500));
+      
+      // 即使失败，也尝试解析 JSON 看是否有 streaming_url
+      try {
+        const errorData = JSON.parse(text);
+        console.log('Error response parsed:', JSON.stringify(errorData, null, 2));
+        
+        // 检查错误响应中是否有 streaming_url
+        if (errorData.streaming_url || errorData.streamingUrl) {
+          sessionInfo.streaming_url = errorData.streaming_url || errorData.streamingUrl;
+          console.log('✅ Got streaming_url from error response:', sessionInfo.streaming_url);
+        }
+      } catch (parseError) {
+        console.log('Could not parse error response as JSON');
+      }
+      
+      // 保存失败的会话
+      sessionInfo.status = 'FAILED';
+      sessionInfo.error = text.substring(0, 500);
+      sessionInfo.finished_at = new Date().toISOString();
+      
+      recentSessions.unshift(sessionInfo);
+      console.log('💾 Session saved as FAILED:', tempRunId);
+      
+      throw new Error(`TinyFish API error: ${response.status}`);
     }
 
     if (text.trim().startsWith('<')) {
+      console.error('❌ Received HTML instead of JSON');
+      console.error('HTML:', text.substring(0, 300));
+      
+      sessionInfo.status = 'FAILED';
+      sessionInfo.error = 'Received HTML instead of JSON';
+      sessionInfo.finished_at = new Date().toISOString();
+      
+      recentSessions.unshift(sessionInfo);
+      
       throw new Error('Received HTML instead of JSON');
     }
 
@@ -78,21 +180,27 @@ async function callTinyFish(url, goal, timeout = 90000) {
       sessionInfo.status = result.status;
       sessionInfo.finished_at = result.finished_at;
       
-      // 关键：获取 streamingUrl
-      // 可能在 result.streamingUrl 或 result.data.streamingUrl 或 result.output.streamingUrl
-      sessionInfo.streamingUrl = result.streamingUrl || 
-                                  result.data?.streamingUrl || 
-                                  result.output?.streamingUrl ||
-                                  null;
+      // 关键：获取 TinyFish 实际访问的 URL（不是 streaming_url，而是实际浏览的 URL）
+      // 检查 result 中是否包含浏览历史或当前 URL
+      sessionInfo.current_url = result.current_url || 
+                               result.browser_url || 
+                               result.current_browser_url ||
+                               result.url ||  // 如果 API 返回了实际访问的 URL
+                               url;  // 否则使用原始请求的 URL
       
-      if (sessionInfo.streamingUrl) {
-        console.log('💾 Session streamingUrl:', sessionInfo.streamingUrl);
-      } else {
-        console.log('⚠️ No streamingUrl in response');
-        // 尝试从 run_id 构造 streamingUrl（备选方案）
-        // 格式：https://tf-{run_id}.fra0-tinyfish.unikraft.app/stream/0
-        // 但这需要知道正确的域名，所以先不使用
+      // 如果 result 中有浏览历史，获取最新的 URL
+      if (result.history && Array.isArray(result.history) && result.history.length > 0) {
+        const latestStep = result.history[result.history.length - 1];
+        sessionInfo.current_url = latestStep.url || latestStep.current_url || sessionInfo.current_url;
       }
+      
+      // 检查 result 中是否有浏览步骤
+      if (result.steps && Array.isArray(result.steps) && result.steps.length > 0) {
+        const latestStep = result.steps[result.steps.length - 1];
+        sessionInfo.current_url = latestStep.url || latestStep.current_url || sessionInfo.current_url;
+      }
+      
+      console.log('Current URL for iframe:', sessionInfo.current_url);
       
       console.log('💾 Session updated:', result.run_id);
     } else {
@@ -115,6 +223,9 @@ async function callTinyFish(url, goal, timeout = 90000) {
     sessionInfo.status = 'FAILED';
     sessionInfo.finished_at = new Date().toISOString();
     sessionInfo.error = error.message;
+    
+    // 即使失败，也要保存原始 URL（这样前端可以显示）
+    sessionInfo.current_url = url;
     
     // 保存到会话列表（即使失败）
     recentSessions.unshift(sessionInfo);
@@ -464,17 +575,35 @@ async function fetchSimplePrice(symbol) {
   try {
     console.log(`\n💰 Fetching price for ${symbol} via TinyFish...`);
     
-    // 使用更简单的页面和明确的 goal
-    const url = `https://www.google.com/finance/quote/${symbol}:NASDAQ`;
-    const goal = `Find the current stock price for ${symbol}. Extract ONLY the price number and return as JSON: {"symbol":"${symbol}","price":0.00,"change":0.00,"change_percent":0.00,"currency":"USD"}. Return nothing else.`;
-
-    // 缩短超时到 30 秒
-    const result = await callTinyFish(url, goal, 30000);
-    const priceData = result.result || result.output?.data || result.data || result.output || {};
+    // 尝试多个 URL，直到成功
+    let lastError = null;
+    for (const source of STOCK_URLS) {
+      try {
+        console.log(`🔍 Trying ${source.name}...`);
+        const url = source.url(symbol);
+        const goal = source.goal(symbol);
+        
+        // 缩短超时到 30 秒
+        const result = await callTinyFish(url, goal, 30000);
+        const priceData = result.result || result.output?.data || result.data || result.output || {};
+        
+        // 检查是否成功获取价格
+        if (priceData && (priceData.price || priceData.current_price)) {
+          console.log(`✅ Got price from ${source.name}:`, priceData);
+          cache.set(cacheKey, { data: priceData, timestamp: Date.now() });
+          return priceData;
+        }
+      } catch (error) {
+        console.log(`❌ ${source.name} failed:`, error.message);
+        lastError = error;
+        // 继续尝试下一个
+      }
+    }
     
-    console.log('✅ Got price from TinyFish:', priceData);
-    cache.set(cacheKey, { data: priceData, timestamp: Date.now() });
-    return priceData;
+    // 所有源都失败
+    console.error('All sources failed');
+    throw lastError || new Error('All price sources failed');
+    
   } catch (error) {
     console.error('Price fetch error:', error.message);
     return {

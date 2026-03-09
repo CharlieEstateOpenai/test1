@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TinyFish API 调试 - 检查 streamingUrl</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .btn {
+            padding: 12px 24px;
+            background: #0066cc;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        .btn:hover { background: #0052a3; }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 12px;
+            max-height: 600px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .success { color: #16a34a; font-weight: 600; }
+        .error { color: #dc2626; font-weight: 600; }
+        .warning { color: #f59e0b; font-weight: 600; }
+        iframe {
+            width: 100%;
+            height: 600px;
+            border: 2px solid #0066cc;
+            border-radius: 4px;
+            margin-top: 15px;
+        }
+        .highlight {
+            background: #fef3c7;
+            padding: 10px;
+            border-radius: 6px;
+            border-left: 4px solid #f59e0b;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 TinyFish API 调试 - 检查 streamingUrl</h1>
+    
+    <div class="card">
+        <h2>步骤 1: 调用 TinyFish API</h2>
+        <button class="btn" onclick="callTinyFish()">🚀 调用 API (搜索 AAPL)</button>
+        <div id="step1Result" style="margin-top: 15px;"></div>
+    </div>
+    
+    <div class="card">
+        <h2>步骤 2: 检查响应中的 streamingUrl</h2>
+        <button class="btn" onclick="checkStreamingUrl()" disabled id="checkBtn">📡 检查 streamingUrl</button>
+        <div id="step2Result" style="margin-top: 15px;"></div>
+    </div>
+    
+    <div class="card">
+        <h2>步骤 3: 在 iframe 中显示</h2>
+        <div id="step3Result"></div>
+    </div>
+    
+    <div class="card">
+        <h2>完整 API 响应</h2>
+        <pre id="fullResponse">等待调用...</pre>
+    </div>
+
+    <script>
+        let lastResponse = null;
+        const API_KEY = "sk-tinyfish-jrNPRJUhx20YD6Ozc5sRefmtsdC1MPMu";
+
+        async function callTinyFish() {
+            const resultDiv = document.getElementById('step1Result');
+            resultDiv.innerHTML = '<p>正在调用 TinyFish API...</p>';
+            
+            try {
+                const response = await fetch('https://agent.tinyfish.ai/v1/automation/run', {
+                    method: 'POST',
+                    headers: {
+                        'X-API-Key': API_KEY,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        url: 'https://www.google.com/finance/quote/AAPL:NASDAQ',
+                        goal: 'Find the current stock price for AAPL'
+                    })
+                });
+                
+                const text = await response.text();
+                
+                try {
+                    lastResponse = JSON.parse(text);
+                } catch (e) {
+                    lastResponse = { error: 'Invalid JSON', raw: text.substring(0, 500) };
+                }
+                
+                document.getElementById('fullResponse').textContent = JSON.stringify(lastResponse, null, 2);
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<p class="success">✅ API 调用成功！</p>
+                        <p><strong>Status:</strong> ${response.status}</p>
+                        <p><strong>Run ID:</strong> ${lastResponse.run_id || 'N/A'}</p>
+                        <p><strong>Overall Status:</strong> ${lastResponse.status || 'N/A'}</p>`;
+                    
+                    document.getElementById('checkBtn').disabled = false;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">❌ API 调用失败！</p>
+                        <p><strong>Status:</strong> ${response.status}</p>
+                        <p><strong>Error:</strong> ${JSON.stringify(lastResponse)}</p>`;
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">❌ 错误：${error.message}</p>`;
+                document.getElementById('fullResponse').textContent = `Error: ${error.message}\n\nStack: ${error.stack}`;
+            }
+        }
+
+        function checkStreamingUrl() {
+            if (!lastResponse) {
+                alert('请先调用 API');
+                return;
+            }
+            
+            const resultDiv = document.getElementById('step2Result');
+            const step3Div = document.getElementById('step3Result');
+            
+            // 检查所有可能的位置
+            const streamingUrl = lastResponse.streamingUrl || 
+                                lastResponse.data?.streamingUrl || 
+                                lastResponse.output?.streamingUrl ||
+                                null;
+            
+            let html = '<div class="highlight">';
+            html += '<h3>检查结果：</h3>';
+            
+            if (streamingUrl) {
+                html += `<p class="success">✅ 找到 streamingUrl!</p>
+                    <p><strong>URL:</strong> <code>${streamingUrl}</code></p>`;
+                
+                step3Div.innerHTML = `
+                    <h3>实时浏览器画面：</h3>
+                    <iframe 
+                        src="${streamingUrl}" 
+                        title="TinyFish Live View"
+                        frameborder="0"
+                        allowfullscreen
+                    ></iframe>
+                    <p style="margin-top: 10px; font-size: 12px; color: #666;">
+                        如果上面显示空白或错误，请检查：<br>
+                        1. streamingUrl 是否有效（在浏览器新标签页中打开测试）<br>
+                        2. 是否跨域问题（CORS）<br>
+                        3. Run 的状态是否为 RUNNING 或 COMPLETED
+                    </p>
+                `;
+            } else {
+                html += `<p class="error">❌ 未找到 streamingUrl</p>`;
+                html += '<p>检查以下位置：</p><ul>';
+                html += `<li>response.streamingUrl: ${lastResponse.streamingUrl ? '✅ 存在' : '❌ 不存在'}</li>`;
+                html += `<li>response.data.streamingUrl: ${lastResponse.data?.streamingUrl ? '✅ 存在' : '❌ 不存在'}</li>`;
+                html += `<li>response.output.streamingUrl: ${lastResponse.output?.streamingUrl ? '✅ 存在' : '❌ 不存在'}</li>`;
+                html += '</ul>';
+                
+                html += '<p class="warning">⚠️ 可能原因：</p>';
+                html += '<ol>';
+                html += '<li>API 调用失败（检查 Run 的 status 是否为 FAILED）</li>';
+                html += '<li>TinyFish 账户没有 streamingUrl 权限</li>';
+                html += '<li>API 响应格式已变更</li>';
+                html += '</ol>';
+                
+                html += '<p>完整响应结构：</p><pre>' + JSON.stringify(lastResponse, null, 2) + '</pre>';
+                html += '</div>';
+                
+                step3Div.innerHTML = '<p class="warning">⚠️ 没有 streamingUrl，无法显示 iframe</p>';
+            }
+            
+            resultDiv.innerHTML = html;
+        }
+    </script>
+</body>
+</html>

@@ -43,6 +43,27 @@
 
         <!-- Stock Detail Section -->
         <div id="stockDetail" class="stock-detail">
+            <!-- Live Browser View Section -->
+            <div class="live-browser-section" style="margin-bottom: 30px;">
+                <div class="browser-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; color: white;">
+                    <div>
+                        <h3 style="margin: 0; font-size: 1.2rem;">🎬 TinyFish 实时浏览器画面</h3>
+                        <p style="margin: 5px 0 0 0; font-size: 0.9rem; opacity: 0.9;">查看 TinyFish 正在抓取网页的实时操作</p>
+                    </div>
+                    <button onclick="loadSessions()" class="btn-refresh" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9rem;">
+                        🔄 刷新
+                    </button>
+                </div>
+                
+                <div id="liveBrowserView" class="live-browser-view">
+                    <div class="loading-browser" style="padding: 40px; text-align: center; background: #f8f9fa; border-radius: 12px; border: 2px dashed #dee2e6;">
+                        <div class="spinner" style="width: 40px; height: 40px; border: 4px solid #e9ecef; border-top-color: #667eea; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px;"></div>
+                        <p style="color: #6c757d;">正在等待 TinyFish 运行...</p>
+                        <p style="font-size: 0.85rem; color: #adb5bd; margin-top: 5px;">搜索股票后，这里将显示实时浏览器画面</p>
+                    </div>
+                </div>
+            </div>
+
             <!-- Header Card -->
             <div class="header-card">
                 <div class="header-content">
@@ -112,7 +133,7 @@
         </div>
         
         <!-- TinyFish Live Sessions Section -->
-        <div class="sessions-section" style="margin-top: 40px;">
+        <div class="sessions-section" style="margin-top: 40px; display: none;">
             <div class="sessions-header">
                 <h2>🔴 TinyFish API 调取画面可视化</h2>
                 <button id="refreshSessionsBtn" onclick="loadSessions()" class="btn-refresh">
@@ -125,13 +146,7 @@
                 <div class="no-sessions">正在加载可视化画面...</div>
             </div>
             
-            <!-- 历史会话列表 -->
-            <div class="sessions-history" style="margin-top: 30px;">
-                <h3 style="margin-bottom: 15px; color: #666;">📋 最近会话列表</h3>
-                <div id="sessionsContainer" class="sessions-container">
-                    <div class="no-sessions">No active sessions. Search for a stock to start a session.</div>
-                </div>
-            </div>
+            <!-- 历史会话列表 - 已移除 -->
         </div>
     </div>
 

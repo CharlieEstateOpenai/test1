@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TinyFish API 实时调试</title>
+  <style>
+    body {
+      font-family: 'Courier New', monospace;
+      padding: 20px;
+      background: #0a0a0a;
+      color: #0f0;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #0f0;
+      border-bottom: 2px solid #0f0;
+      padding-bottom: 10px;
+    }
+    .section {
+      background: #1a1a1a;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 10px;
+      border: 1px solid #333;
+    }
+    button {
+      background: #0f0;
+      color: #000;
+      border: none;
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      margin: 5px;
+      border-radius: 5px;
+    }
+    button:hover {
+      background: #0a0;
+    }
+    pre {
+      background: #000;
+      padding: 15px;
+      border-radius: 5px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      border: 1px solid #333;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .success { color: #0f0; }
+    .error { color: #f00; }
+    .info { color: #ff0; }
+    iframe {
+      width: 100%;
+      height: 600px;
+      border: 2px solid #0f0;
+      border-radius: 10px;
+      background: #000;
+    }
+    .log-entry {
+      margin: 5px 0;
+      padding: 5px;
+      border-left: 3px solid #0f0;
+      padding-left: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚀 TinyFish API 实时调试</h1>
+    
+    <div class="section">
+      <h2>📋 测试配置</h2>
+      <div style="margin: 10px 0;">
+        <label>URL: </label>
+        <input type="text" id="testUrl" value="https://www.google.com/finance/quote/AAPL:NASDAQ" style="width: 500px; padding: 8px; background: #000; color: #0f0; border: 1px solid #0f0;">
+      </div>
+      <div style="margin: 10px 0;">
+        <label>Goal: </label>
+        <input type="text" id="testGoal" value="Find the current stock price for AAPL" style="width: 500px; padding: 8px; background: #000; color: #0f0; border: 1px solid #0f0;">
+      </div>
+      <div>
+        <button onclick="testRunAsync()">🚀 测试 run-async</button>
+        <button onclick="testRun()">🚀 测试 run</button>
+        <button onclick="getRunDetails()">📡 获取 Run 详情</button>
+        <button onclick="clearLog()">🗑️ 清空日志</button>
+      </div>
+      <div style="margin: 10px 0;">
+        <label>Run ID: </label>
+        <input type="text" id="runId" placeholder="输入 run_id" style="width: 400px; padding: 8px; background: #000; color: #0f0; border: 1px solid #0f0;">
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>📝 实时日志</h2>
+      <pre id="logBox"></pre>
+    </div>
+
+    <div class="section">
+      <h2>📄 API 响应</h2>
+      <pre id="responseBox">等待调用...</pre>
+    </div>
+
+    <div class="section">
+      <h2>🖥️ 实时浏览器画面</h2>
+      <div id="iframeContainer">等待 streaming_url...</div>
+    </div>
+  </div>
+
+  <script>
+    const API_KEY = 'sk-tinyfish-jrNPRJUhx20YD6Ozc5sRefmtsdC1MPMu';
+    let currentRunId = null;
+    let currentStreamingUrl = null;
+
+    function log(message, type = 'info') {
+      const logBox = document.getElementById('logBox');
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logBox.appendChild(entry);
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    function clearLog() {
+      document.getElementById('logBox').innerHTML = '';
+      document.getElementById('responseBox').textContent = '等待调用...';
+      document.getElementById('iframeContainer').innerHTML = '等待 streaming_url...';
+      currentRunId = null;
+      currentStreamingUrl = null;
+    }
+
+    async function testRunAsync() {
+      const url = document.getElementById('testUrl').value;
+      const goal = document.getElementById('testGoal').value;
+      
+      log('🚀 调用 /v1/run-async...', 'info');
+      log(`URL: ${url}`, 'info');
+      log(`Goal: ${goal}`, 'info');
+      
+      try {
+        const response = await fetch('https://agent.tinyfish.ai/v1/run-async', {
+          method: 'POST',
+          headers: {
+            'X-API-Key': API_KEY,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ url, goal })
+        });
+        
+        log(`📡 HTTP 状态：${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+        
+        const text = await response.text();
+        
+        try {
+          const data = JSON.parse(text);
+          document.getElementById('responseBox').textContent = JSON.stringify(data, null, 2);
+          
+          if (response.ok) {
+            log('✅ API 调用成功', 'success');
+            log(`Run ID: ${data.run_id}`, 'success');
+            log(`Status: ${data.status}`, 'success');
+            
+            currentRunId = data.run_id;
+            document.getElementById('runId').value = data.run_id;
+            
+            // 检查 streaming_url
+            if (data.streaming_url) {
+              log(`✅ 找到 streaming_url: ${data.streaming_url}`, 'success');
+              currentStreamingUrl = data.streaming_url;
+              showIframe(data.streaming_url);
+            } else if (data.streamingUrl) {
+              log(`✅ 找到 streamingUrl: ${data.streamingUrl}`, 'success');
+              currentStreamingUrl = data.streamingUrl;
+              showIframe(data.streamingUrl);
+            } else {
+              log('⚠️ 未找到 streaming_url 字段', 'error');
+              log('可用字段：' + Object.keys(data).join(', '), 'info');
+              
+              // 自动尝试通过 GET /v1/runs/{run_id} 获取 streaming_url
+              if (data.run_id) {
+                log('🔍 尝试通过 GET /v1/runs/{run_id} 获取 streaming_url...', 'info');
+                await setTimeout(() => {}, 1000); // 等待 1 秒
+                await getRunDetailsFromId(data.run_id);
+              }
+            }
+          } else {
+            log(`❌ API 错误：${response.status}`, 'error');
+            log(`响应：${text}`, 'error');
+          }
+        } catch (e) {
+          log(`❌ JSON 解析失败：${e.message}`, 'error');
+          document.getElementById('responseBox').textContent = text;
+        }
+      } catch (error) {
+        log(`❌ 网络错误：${error.message}`, 'error');
+        document.getElementById('responseBox').textContent = error.message;
+      }
+    }
+
+    async function getRunDetailsFromId(runId) {
+      log(`📡 获取 Run 详情：${runId}`, 'info');
+      
+      try {
+        const response = await fetch(`https://agent.tinyfish.ai/v1/runs/${runId}`, {
+          method: 'GET',
+          headers: {
+            'X-API-Key': API_KEY
+          }
+        });
+        
+        log(`📡 HTTP 状态：${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+        
+        const text = await response.text();
+        
+        try {
+          const data = JSON.parse(text);
+          document.getElementById('responseBox').textContent = JSON.stringify(data, null, 2);
+          
+          if (response.ok) {
+            log('✅ 获取成功', 'success');
+            log(`Status: ${data.status}`, 'success');
+            
+            // 检查 streaming_url
+            if (data.streaming_url) {
+              log(`✅ 找到 streaming_url: ${data.streaming_url}`, 'success');
+              currentStreamingUrl = data.streaming_url;
+              showIframe(data.streaming_url);
+            } else if (data.streamingUrl) {
+              log(`✅ 找到 streamingUrl: ${data.streamingUrl}`, 'success');
+              currentStreamingUrl = data.streamingUrl;
+              showIframe(data.streamingUrl);
+            } else {
+              log('⚠️ 未找到 streaming_url 字段', 'error');
+              log('可用字段：' + Object.keys(data).join(', '), 'info');
+              log('💡 尝试构造 streaming_url: https://tf-{run_id}.fra0-tinyfish.unikraft.app/stream/0', 'info');
+              
+              // 尝试构造 streaming_url
+              const constructedUrl = `https://tf-${runId}.fra0-tinyfish.unikraft.app/stream/0`;
+              log(`🔧 构造的 URL: ${constructedUrl}`, 'info');
+              showIframe(constructedUrl);
+            }
+          } else {
+            log(`❌ API 错误：${response.status}`, 'error');
+            log(`响应：${text}`, 'error');
+          }
+        } catch (e) {
+          log(`❌ JSON 解析失败：${e.message}`, 'error');
+          document.getElementById('responseBox').textContent = text;
+        }
+      } catch (error) {
+        log(`❌ 网络错误：${error.message}`, 'error');
+        document.getElementById('responseBox').textContent = error.message;
+      }
+    }
+
+    async function testRun() {
+      const url = document.getElementById('testUrl').value;
+      const goal = document.getElementById('testGoal').value;
+      
+      log('🚀 调用 /v1/automation/run...', 'info');
+      
+      try {
+        const response = await fetch('https://agent.tinyfish.ai/v1/automation/run', {
+          method: 'POST',
+          headers: {
+            'X-API-Key': API_KEY,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ url, goal })
+        });
+        
+        log(`📡 HTTP 状态：${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+        
+        const text = await response.text();
+        
+        try {
+          const data = JSON.parse(text);
+          document.getElementById('responseBox').textContent = JSON.stringify(data, null, 2);
+          
+          if (response.ok) {
+            log('✅ API 调用成功', 'success');
+            log(`Run ID: ${data.run_id}`, 'success');
+            log(`Status: ${data.status}`, 'success');
+            
+            currentRunId = data.run_id;
+            document.getElementById('runId').value = data.run_id;
+            
+            // 检查 streaming_url
+            if (data.streaming_url) {
+              log(`✅ 找到 streaming_url: ${data.streaming_url}`, 'success');
+              currentStreamingUrl = data.streaming_url;
+              showIframe(data.streaming_url);
+            } else if (data.streamingUrl) {
+              log(`✅ 找到 streamingUrl: ${data.streamingUrl}`, 'success');
+              currentStreamingUrl = data.streamingUrl;
+              showIframe(data.streamingUrl);
+            } else {
+              log('⚠️ 未找到 streaming_url 字段', 'error');
+              log('可用字段：' + Object.keys(data).join(', '), 'info');
+            }
+          } else {
+            log(`❌ API 错误：${response.status}`, 'error');
+            log(`响应：${text}`, 'error');
+          }
+        } catch (e) {
+          log(`❌ JSON 解析失败：${e.message}`, 'error');
+          document.getElementById('responseBox').textContent = text;
+        }
+      } catch (error) {
+        log(`❌ 网络错误：${error.message}`, 'error');
+        document.getElementById('responseBox').textContent = error.message;
+      }
+    }
+
+    async function getRunDetails() {
+      const runId = document.getElementById('runId').value.trim() || currentRunId;
+      
+      if (!runId) {
+        log('❌ 请输入 run_id', 'error');
+        return;
+      }
+      
+      await getRunDetailsFromId(runId);
+    }
+
+    function showIframe(url) {
+      const container = document.getElementById('iframeContainer');
+      container.innerHTML = `
+        <p style="margin-bottom: 10px; color: #0f0;">Streaming URL: ${url}</p>
+        <iframe 
+          src="${url}" 
+          width="100%" 
+          height="600" 
+          frameborder="0"
+          allowfullscreen
+          sandbox="allow-scripts allow-same-origin allow-forms"
+        ></iframe>
+      `;
+      log('✅ iframe 已显示', 'success');
+    }
+  </script>
+</body>
+</html>
