@@ -29,8 +29,7 @@ async function callTinyFish(url, goal, timeout = 90000) {
     goal: goal,
     status: 'RUNNING',
     started_at: new Date().toISOString(),
-    stream_url: `https://agent.tinyfish.ai/v1/automation/${tempRunId}/stream`,
-    view_url: `https://agent.tinyfish.ai/v1/automation/${tempRunId}/view`
+    streamingUrl: null  // 初始为 null，等待 API 返回
   };
   
   console.log('💾 Session created (pending):', tempRunId);
@@ -50,12 +49,7 @@ async function callTinyFish(url, goal, timeout = 90000) {
       },
       body: JSON.stringify({ 
         url: url,
-        goal: goal,
-        // 请求返回浏览器画面和截图
-        options: {
-          capture_screenshots: true,
-          capture_interval: 2000
-        }
+        goal: goal
       }),
       signal: controller.signal
     });
@@ -76,6 +70,7 @@ async function callTinyFish(url, goal, timeout = 90000) {
 
     const result = JSON.parse(text);
     console.log('✅ Success');
+    console.log('Full response:', JSON.stringify(result, null, 2));
     
     // 更新会话信息
     if (result.run_id) {
@@ -83,11 +78,20 @@ async function callTinyFish(url, goal, timeout = 90000) {
       sessionInfo.status = result.status;
       sessionInfo.finished_at = result.finished_at;
       
-      // 关键：使用 streamingUrl 而不是之前的 stream_url
-      // streamingUrl 格式：https://tf-abc123.fra0-tinyfish.unikraft.app/stream/0
-      if (result.streamingUrl) {
-        sessionInfo.streamingUrl = result.streamingUrl;
-        console.log('💾 Session streamingUrl:', result.streamingUrl);
+      // 关键：获取 streamingUrl
+      // 可能在 result.streamingUrl 或 result.data.streamingUrl 或 result.output.streamingUrl
+      sessionInfo.streamingUrl = result.streamingUrl || 
+                                  result.data?.streamingUrl || 
+                                  result.output?.streamingUrl ||
+                                  null;
+      
+      if (sessionInfo.streamingUrl) {
+        console.log('💾 Session streamingUrl:', sessionInfo.streamingUrl);
+      } else {
+        console.log('⚠️ No streamingUrl in response');
+        // 尝试从 run_id 构造 streamingUrl（备选方案）
+        // 格式：https://tf-{run_id}.fra0-tinyfish.unikraft.app/stream/0
+        // 但这需要知道正确的域名，所以先不使用
       }
       
       console.log('💾 Session updated:', result.run_id);
@@ -96,7 +100,7 @@ async function callTinyFish(url, goal, timeout = 90000) {
       sessionInfo.finished_at = new Date().toISOString();
     }
     
-    // 保存到会话列表
+    // 保存到会话列表（无论成功还是失败）
     recentSessions.unshift(sessionInfo);
     if (recentSessions.length > MAX_SESSIONS) {
       recentSessions.pop();
