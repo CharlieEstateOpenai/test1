@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TinyFish 实时画面测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .btn {
+            padding: 12px 24px;
+            background: #0066cc;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        .btn:hover {
+            background: #0052a3;
+        }
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 12px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .screenshot-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .screenshot-item {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .screenshot-item img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            display: block;
+        }
+        .screenshot-info {
+            padding: 10px;
+            font-size: 12px;
+            color: #666;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin: 5px 0;
+        }
+        .status.COMPLETED { background: #10b981; color: white; }
+        .status.RUNNING { background: #f59e0b; color: white; }
+        .status.FAILED { background: #ef4444; color: white; }
+        .log-entry {
+            padding: 8px;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 13px;
+        }
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+        .log-time {
+            color: #999;
+            font-size: 11px;
+        }
+        .log-message {
+            margin-left: 10px;
+        }
+        iframe {
+            width: 100%;
+            height: 600px;
+            border: 2px solid #0066cc;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 TinyFish 实时画面调试</h1>
+    
+    <div class="card">
+        <h2>1. 创建会话</h2>
+        <button class="btn" id="createBtn" onclick="createSession()">🚀 搜索 AAPL</button>
+        <div id="sessionInfo" style="margin-top: 15px;"></div>
+    </div>
+    
+    <div class="card">
+        <h2>2. 轮询会话状态和画面</h2>
+        <button class="btn" id="pollBtn" onclick="togglePolling()" disabled>▶️ 开始轮询</button>
+        <button class="btn" onclick="pollOnce()">📡 手动轮询一次</button>
+        <div id="pollStatus" style="margin-top: 10px;"></div>
+        
+        <div id="screenshotContainer" class="screenshot-container"></div>
+    </div>
+    
+    <div class="card">
+        <h2>3. 实时日志流</h2>
+        <div id="logsContainer" style="max-height: 400px; overflow-y: auto; background: #f8f9fa; padding: 15px; border-radius: 6px;"></div>
+    </div>
+    
+    <div class="card">
+        <h2>4. 完整响应数据</h2>
+        <button class="btn" onclick="showFullResponse()">📋 显示完整 JSON</button>
+        <pre id="fullResponse">Click button to see full response</pre>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        let currentSession = null;
+        let pollingInterval = null;
+        let isPolling = false;
+        let screenshotCount = 0;
+
+        async function createSession() {
+            const btn = document.getElementById('createBtn');
+            btn.disabled = true;
+            btn.textContent = '创建中...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/stock/AAPL/price`);
+                const data = await response.json();
+                
+                // 获取会话列表
+                const sessionsResponse = await fetch(`${API_BASE}/api/sessions`);
+                const sessionsData = await sessionsResponse.json();
+                
+                if (sessionsData.sessions && sessionsData.sessions.length > 0) {
+                    currentSession = sessionsData.sessions[0];
+                    
+                    document.getElementById('sessionInfo').innerHTML = `
+                        <p><strong>✅ 会话创建成功!</strong></p>
+                        <p><strong>Run ID:</strong> ${currentSession.run_id}</p>
+                        <p><strong>Status:</strong> ${currentSession.status}</p>
+                        <p><strong>URL:</strong> ${currentSession.url}</p>
+                        <p><strong>Stream URL:</strong> <a href="${currentSession.stream_url}" target="_blank">${currentSession.stream_url}</a></p>
+                        <p style="margin-top: 15px; color: #f59e0b;">
+                            ⚠️ 注意：stream_url 返回的是文字日志，不是浏览器画面。<br>
+                            需要调用 TinyFish 的其他 API 来获取实时截图。
+                        </p>
+                    `;
+                    
+                    document.getElementById('pollBtn').disabled = false;
+                }
+            } catch (error) {
+                document.getElementById('sessionInfo').innerHTML = `<p style="color: red;">❌ 错误：${error.message}</p>`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🚀 搜索 AAPL';
+            }
+        }
+
+        async function pollOnce() {
+            if (!currentSession) {
+                alert('请先创建会话');
+                return;
+            }
+            
+            const apiKey = "sk-tinyfish-jrNPRJUhx20YD6Ozc5sRefmtsdC1MPMu";
+            
+            try {
+                // 尝试获取会话详情（可能包含截图）
+                const response = await fetch(`https://agent.tinyfish.ai/v1/automation/${currentSession.run_id}`, {
+                    headers: {
+                        'X-API-Key': apiKey
+                    }
+                });
+                
+                const data = await response.json();
+                document.getElementById('fullResponse').textContent = JSON.stringify(data, null, 2);
+                
+                // 检查是否有截图或画面 URL
+                if (data.screenshots || data.frames || data.browser_view) {
+                    displayScreenshots(data.screenshots || data.frames || data.browser_view);
+                }
+                
+                // 获取日志
+                const logsResponse = await fetch(currentSession.stream_url, {
+                    headers: {
+                        'X-API-Key': apiKey
+                    }
+                });
+                
+                const logsData = await logsResponse.json();
+                displayLogs(logsData);
+                
+                document.getElementById('pollStatus').innerHTML = `
+                    <span class="status ${data.status}">${data.status || 'Unknown'}</span>
+                    <span style="margin-left: 10px;">更新时间：${new Date().toLocaleTimeString()}</span>
+                `;
+                
+            } catch (error) {
+                console.error('Polling error:', error);
+                document.getElementById('pollStatus').innerHTML = `<span style="color: red;">❌ 轮询失败：${error.message}</span>`;
+            }
+        }
+
+        function displayScreenshots(screenshots) {
+            const container = document.getElementById('screenshotContainer');
+            
+            if (!Array.isArray(screenshots)) {
+                screenshots = [screenshots];
+            }
+            
+            container.innerHTML = screenshots.map((shot, index) => `
+                <div class="screenshot-item">
+                    <img src="${shot.url || shot.screenshot_url || shot}" alt="Screenshot ${index + 1}" />
+                    <div class="screenshot-info">
+                        截图 ${screenshotCount + index + 1}
+                        ${shot.timestamp ? `<br>时间：${new Date(shot.timestamp).toLocaleTimeString()}` : ''}
+                    </div>
+                </div>
+            `).join('');
+            
+            screenshotCount += screenshots.length;
+        }
+
+        function displayLogs(logsData) {
+            const container = document.getElementById('logsContainer');
+            
+            if (!Array.isArray(logsData)) {
+                logsData = [logsData];
+            }
+            
+            container.innerHTML = logsData.map(log => `
+                <div class="log-entry">
+                    <span class="log-time">${new Date(log.timestamp || Date.now()).toLocaleTimeString()}</span>
+                    <span class="log-message">${log.message || log.text || JSON.stringify(log)}</span>
+                </div>
+            `).reverse().join('');
+        }
+
+        function showFullResponse() {
+            // 已经在 pollOnce 中显示了
+        }
+
+        function togglePolling() {
+            if (isPolling) {
+                clearInterval(pollingInterval);
+                isPolling = false;
+                document.getElementById('pollBtn').textContent = '▶️ 开始轮询';
+                document.getElementById('pollBtn').classList.remove('btn-danger');
+            } else {
+                pollOnce(); // 立即执行一次
+                pollingInterval = setInterval(pollOnce, 2000); // 每 2 秒轮询一次
+                isPolling = true;
+                document.getElementById('pollBtn').textContent = '⏹️ 停止轮询';
+                document.getElementById('pollBtn').style.background = '#dc2626';
+            }
+        }
+    </script>
+</body>
+</html>
