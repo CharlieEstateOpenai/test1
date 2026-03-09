@@ -634,13 +634,51 @@ async function loadSessions() {
         const data = await response.json();
         
         const container = document.getElementById('sessionsContainer');
+        const mainViz = document.getElementById('mainVisualization');
         
         if (!data.sessions || data.sessions.length === 0) {
             container.innerHTML = '<div class="no-sessions">No active sessions. Search for a stock to start a session.</div>';
+            mainViz.innerHTML = '<div class="no-sessions">正在加载可视化画面...</div>';
             return;
         }
         
-        container.innerHTML = data.sessions.map(session => {
+        // 获取最新的会话（第一个）
+        const latestSession = data.sessions[0];
+        
+        // 主可视化区域 - 显示最新会话的大 iframe
+        const statusClass = latestSession.status === 'COMPLETED' ? 'completed' : 
+                           latestSession.status === 'RUNNING' ? 'running' : 'failed';
+        
+        mainViz.innerHTML = `
+            <iframe 
+                src="${latestSession.stream_url}" 
+                title="TinyFish API 调取画面可视化展示"
+                width="100%" 
+                height="800" 
+                frameborder="0"
+                allowfullscreen
+            ></iframe>
+            <div class="session-info" style="padding: 20px; background: #f8f9fa; border-top: 2px solid #e0e0e0;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h4 style="margin: 0; color: #333; font-size: 1.1rem;">
+                        🔴 实时会话：${latestSession.run_id}
+                    </h4>
+                    <span class="session-status ${statusClass}">${latestSession.status || 'Unknown'}</span>
+                </div>
+                <div style="font-size: 0.9rem; color: #666; line-height: 1.6;">
+                    <div><strong>目标 URL:</strong> ${latestSession.url}</div>
+                    <div><strong>开始时间:</strong> ${latestSession.started_at ? new Date(latestSession.started_at).toLocaleString('zh-CN') : 'N/A'}</div>
+                    ${latestSession.finished_at ? `<div><strong>完成时间:</strong> ${new Date(latestSession.finished_at).toLocaleString('zh-CN')}</div>` : ''}
+                    <div style="margin-top: 10px; padding: 10px; background: #e3f2fd; border-radius: 6px;">
+                        <strong>Stream URL:</strong><br>
+                        <code style="font-size: 0.85rem; word-break: break-all;">${latestSession.stream_url}</code>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // 历史会话列表
+        container.innerHTML = data.sessions.slice(1).map(session => {
             const statusClass = session.status === 'COMPLETED' ? 'completed' : 
                                session.status === 'RUNNING' ? 'running' : 'failed';
             
@@ -666,10 +704,16 @@ async function loadSessions() {
                 </div>
             `;
         }).join('');
+        
+        if (data.sessions.length === 1) {
+            container.innerHTML = '<div class="no-sessions">只有一个会话（显示在上方主可视化区域）</div>';
+        }
     } catch (error) {
         console.error('Error loading sessions:', error);
         const container = document.getElementById('sessionsContainer');
+        const mainViz = document.getElementById('mainVisualization');
         container.innerHTML = '<div class="no-sessions">Failed to load sessions</div>';
+        mainViz.innerHTML = '<div class="no-sessions">加载可视化画面失败</div>';
     }
 }
 

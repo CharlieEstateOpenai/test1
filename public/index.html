@@ -114,13 +114,23 @@
         <!-- TinyFish Live Sessions Section -->
         <div class="sessions-section" style="margin-top: 40px;">
             <div class="sessions-header">
-                <h2>🔴 Live TinyFish Sessions</h2>
+                <h2>🔴 TinyFish API 调取画面可视化</h2>
                 <button id="refreshSessionsBtn" onclick="loadSessions()" class="btn-refresh">
-                    🔄 Refresh
+                    🔄 刷新会话
                 </button>
             </div>
-            <div id="sessionsContainer" class="sessions-container">
-                <div class="no-sessions">No active sessions. Search for a stock to start a session.</div>
+            
+            <!-- 主可视化区域 - 显示最新的会话 -->
+            <div id="mainVisualization" class="main-visualization">
+                <div class="no-sessions">正在加载可视化画面...</div>
+            </div>
+            
+            <!-- 历史会话列表 -->
+            <div class="sessions-history" style="margin-top: 30px;">
+                <h3 style="margin-bottom: 15px; color: #666;">📋 最近会话列表</h3>
+                <div id="sessionsContainer" class="sessions-container">
+                    <div class="no-sessions">No active sessions. Search for a stock to start a session.</div>
+                </div>
             </div>
         </div>
     </div>
